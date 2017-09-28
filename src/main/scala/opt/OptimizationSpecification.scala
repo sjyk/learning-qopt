@@ -50,7 +50,7 @@ abstract class QueryInstruction(var instructionType : String) {
     var otherInstruction = obj.asInstanceOf[QueryInstruction]
     if (!otherInstruction.instructionType.equals(instructionType)) {
       return false
-    } else if (otherInstruction.parameters.equals(parameters) && otherInstruction.relations.equals(relations)) {
+    } else if (!(otherInstruction.parameters.equals(parameters) && otherInstruction.relations.equals(relations))) {
       return false
     }
     return true
