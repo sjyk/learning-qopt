@@ -7,9 +7,8 @@ class sql {
 }
 
 class Join(
-            instructionType : String,
             var relations : List[Either[RelationStub, QueryInstruction]],
-            var parameters : List[ConstraintStub]) extends QueryInstruction(instructionType) {
+            var parameters : List[ConstraintStub]) extends QueryInstruction("join") {
 
   override def checkSchema(): Boolean = {
     if (relations.length > 2) {
