@@ -1,18 +1,20 @@
 package opt
 
+import scala.collection.mutable.{ArrayBuffer, ArraySeq, Set}
+
 /* Set of allowed instructions */
 object validInstructionTypes {
-  val validTypes : List[String] = List("join")
+  val validTypes : Seq[String] = Seq("join", "find")
 }
 
 /* Stub classes for relations and constraints - these will need to be customized into the Spark type we want. */
-class RelationStub(var relationName : String, var relationContent : Set[Integer]) {
+class RelationStub(var relationName : String, var relationContent : Set[ArraySeq[String]]) {
   override def toString: String = {
-    return relationName + ", content: " + relationContent.toString()
+    relationName + ", content: " + relationContent.toString()
   }
 }
 
-class ConstraintStub(var constraintString : String)
+class ConstraintStub(var constraints : ArrayBuffer[Either[Int, String]])
 
 /* QueryInstruction is an abstract class that can be implemented by any given instruction (like join). Instructions
  * must naturally contain a set of relations that are either a table or another, subsequent instruction's intermediate
@@ -23,8 +25,8 @@ abstract class QueryInstruction(var instructionType : String) {
   /* Depending on the instruction, different relations popped off for use.
      In a join, Join(A, Join(B,C)) stores [A, Join(B, C)] and pops off these two to perform the operation
    */
-  var relations : List[Either[RelationStub, QueryInstruction]]
-  var parameters : List[ConstraintStub]
+  var relations : ArrayBuffer[Either[RelationStub, QueryInstruction]]
+  var parameters : ArrayBuffer[ConstraintStub]
 
 
   /* This function must be implemented to check that an instruction has valid relationships.
@@ -39,17 +41,17 @@ abstract class QueryInstruction(var instructionType : String) {
     if (!obj.isInstanceOf[QueryInstruction]) {
       return false
     }
-    var otherInstruction = obj.asInstanceOf[QueryInstruction]
+    val otherInstruction = obj.asInstanceOf[QueryInstruction]
     if (!otherInstruction.instructionType.equals(instructionType)) {
       return false
     } else if (!(otherInstruction.parameters.equals(parameters) && otherInstruction.relations.equals(relations))) {
       return false
     }
-    return true
+    true
   }
 
   override def toString: String = {
-    return "(" + instructionType + " " + relations.toString() + "," + parameters.toString() + ")"
+    "(" + instructionType + " " + relations.toString() + "," + parameters.toString() + ")"
   }
 }
 
