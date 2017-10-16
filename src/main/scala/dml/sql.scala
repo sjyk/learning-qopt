@@ -20,7 +20,7 @@ class Join(var relations : ArrayBuffer[Either[RelationStub, QueryInstruction]],
     }
   }
 
-  override def execute(): RelationStub = {
+  override def execute: RelationStub = {
     if (!checkSchema()) {
       throw new Exception("Schema validation failed for this object.")
     }

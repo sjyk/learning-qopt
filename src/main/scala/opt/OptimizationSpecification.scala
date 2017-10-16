@@ -1,6 +1,6 @@
 package opt
 
-import scala.collection.mutable.{ArrayBuffer, ArraySeq, Set}
+import scala.collection.mutable.{ArrayBuffer, Set}
 
 /* Set of allowed instructions */
 object validInstructionTypes {
@@ -8,7 +8,7 @@ object validInstructionTypes {
 }
 
 /* Stub classes for relations and constraints - these will need to be customized into the Spark type we want. */
-class RelationStub(var relationName : String, var relationContent : Set[ArraySeq[String]]) {
+class RelationStub(var relationName : String, var relationContent : Set[Array[String]]) {
   override def toString: String = {
     relationName + ", content: " + relationContent.toString()
   }
@@ -28,6 +28,13 @@ abstract class QueryInstruction(var instructionType : String) {
   var relations : ArrayBuffer[Either[RelationStub, QueryInstruction]]
   var parameters : ArrayBuffer[ConstraintStub]
 
+  /** Store a set of all possible transformations allowed on ANY queryinstruction of this type. */
+  var allowedTransformations : Option[Set[Transformation]] = None
+  /** Defines a function that takes in a QueryInstruction and defines logic to return possible transforms on this.
+    * If you configure this function, you MUST also define allowedTransformations. */
+  def getAllowedTransformations(query : QueryInstruction) : Set[Transformation] = {
+    Set()
+  }
 
   /* This function must be implemented to check that an instruction has valid relationships.
      For example, in join - there can only be 2 relations in the relation list.
@@ -53,6 +60,10 @@ abstract class QueryInstruction(var instructionType : String) {
   override def toString: String = {
     "(" + instructionType + " " + relations.toString() + "," + parameters.toString() + ")"
   }
+
+  override def clone(): QueryInstruction = {
+
+  }
 }
 
 /* Utility class to contain the metadata about a query plan and the root instruction for the plan */
@@ -62,6 +73,6 @@ trait QueryPlan {
 }
 
 /* Transformations convert 1 instruction to another instruction. */
-abstract class Transformation(var input : QueryInstruction) {
-  def transform : QueryInstruction
+abstract class Transformation {
+  def transform(input : QueryInstruction) : QueryInstruction
 }

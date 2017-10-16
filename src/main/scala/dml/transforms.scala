@@ -6,8 +6,16 @@ class transforms {
 
 }
 
-class Identity(input : QueryInstruction) extends Transformation(input) {
-  override def transform: QueryInstruction = {
+class IdentityTransform extends Transformation {
+  override def transform(input : QueryInstruction): QueryInstruction = {
     input
   }
 }
+
+
+class OtherTransform extends Transformation {
+  override def transform(input : QueryInstruction): QueryInstruction = {
+    input
+  }
+}
+
