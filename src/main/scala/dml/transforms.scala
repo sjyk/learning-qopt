@@ -18,4 +18,3 @@ class OtherTransform extends Transformation {
     input
   }
 }
-
