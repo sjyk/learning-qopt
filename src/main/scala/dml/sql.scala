@@ -1,5 +1,6 @@
 package dml
 
+import learning.PlanValidator
 import opt.{ConstraintStub, QueryInstruction, RelationStub}
 
 import scala.collection.mutable.{ArrayBuffer, ArraySeq}
