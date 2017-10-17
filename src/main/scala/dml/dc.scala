@@ -2,7 +2,7 @@ package dml
 
 import opt.{ConstraintStub, QueryInstruction, RelationStub}
 
-import scala.collection.mutable.{ArrayBuffer, ArraySeq}
+import scala.collection.mutable.ArrayBuffer
 
 class dc {
 

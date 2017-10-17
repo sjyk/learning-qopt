@@ -1,11 +1,10 @@
 package learning
 
 import opt.{QueryInstruction, RelationStub, Transformation}
-
 import dml.{IdentityTransform, OtherTransform}
 
 import scala.collection.mutable
-import scala.util.Random
+import scala.util.{Failure, Random, Success, Try}
 
 /** This class needs to sample from a space of possible outcomes.
   * We allow for two forms of sampling - the first is Monte-Carlo sampling, where the implementer of the instruction
@@ -15,7 +14,17 @@ import scala.util.Random
   */
 class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var maxDepth : Option[Int] = None) {
 
-  val isMC : Boolean = initialPlan.allowedTransformations.isDefined
+  val isMC : Boolean = {
+    val accessor = Try(initialPlan.getAllowedTransformations(initialPlan))
+    accessor match {
+      case Failure(thrown) => {
+        false
+      }
+      case Success(s) => {
+        true
+      }
+    }
+  }
   val allTransformations : Vector[Transformation] = mutable.Set[Transformation](new IdentityTransform, new OtherTransform).toVector
   val transformationMaxAttempts : Int = maxDepth.getOrElse(1000)
 
@@ -23,14 +32,15 @@ class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var max
   private def randomSampleMC() : Array[Transformation] = {
     val rnd = new Random()
     val transformationList = new Array[Transformation](sampleDepth)
-    var planCopy = initialPlan.clone()
+    val pType = initialPlan.getClass
+    var planCopy = initialPlan.deepClone
     for (i <- transformationList.indices) {
       val tSet = initialPlan.getAllowedTransformations(planCopy)
       val randomTransform = tSet.toVector(rnd.nextInt(tSet.size))
       transformationList.update(i, randomTransform)
       planCopy = randomTransform.transform(planCopy)
     }
-    if (!new PlanValidator(planCopy, Some(initialPlan)).validate()) {
+    if (!PlanValidator.validate(planCopy, Some(initialPlan))) {
       throw new Exception("MC sampler has generated an invalid plan.")
     }
     transformationList
@@ -42,11 +52,11 @@ class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var max
     while (i < transformationMaxAttempts) {
       /** Sample a transformation order */
       val sampledTransform = Array.fill(sampleDepth){allTransformations(scala.util.Random.nextInt(allTransformations.size))}
-      var planCopy = initialPlan.clone()
+      var planCopy = initialPlan.deepClone
       for (x <- sampledTransform) {
         planCopy = x.transform(planCopy)
       }
-      if (new PlanValidator(planCopy, Some(initialPlan)).validate()) {
+      if (PlanValidator.validate(planCopy, Some(initialPlan))) {
         return sampledTransform
       }
       i += 1
@@ -66,8 +76,8 @@ class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var max
 }
 
 /** Class that checks whether a sampled plan returns the same result as the original instruction. */
-class PlanValidator(val proposedPlan : QueryInstruction, val plan : Option[QueryInstruction] = None, val expectedResult : Option[RelationStub] = None) {
-  def validate() : Boolean = {
+object PlanValidator {
+  def validate(proposedPlan : QueryInstruction, plan : Option[QueryInstruction] = None, expectedResult : Option[RelationStub] = None) : Boolean = {
     val expected  = if (plan.isDefined) {plan.get.execute} else {expectedResult.get}
     expected.equals(proposedPlan.execute)
   }
