@@ -8,19 +8,22 @@ object validInstructionTypes {
   val validTypes : Seq[String] = Seq("join", "find")
 }
 
+@SerialVersionUID(2L)
 /** Stub classes for relations and constraints - these will need to be customized into the Spark type we want. */
-class RelationStub(var relationName : String, var relationContent : Set[Array[String]]) {
+class RelationStub(var relationName : String, var relationContent : Set[Array[String]]) extends Serializable {
   override def toString: String = {
     relationName + ", content: " + relationContent.toString()
   }
 }
 
-class ConstraintStub(var constraints : ArrayBuffer[Either[Int, String]])
+@SerialVersionUID(2L)
+class ConstraintStub(var constraints : ArrayBuffer[Either[Int, String]]) extends Serializable
 
 /** QueryInstruction is an abstract class that can be implemented by any given instruction (like join). Instructions
  * must naturally contain a set of relations that are either a table or another, subsequent instruction's intermediate
  * result.  */
-abstract class QueryInstruction(var instructionType : String) {
+@SerialVersionUID(2L)
+abstract class QueryInstruction(var instructionType : String) extends Serializable {
   require(validInstructionTypes.validTypes.contains(instructionType), "Invalid instruction type")
   /** Depending on the instruction, different relations are popped off for use.
      In a join, Join(A, Join(B,C)) stores [A, Join(B, C)] and pops off these two to perform the operation
@@ -65,7 +68,8 @@ abstract class QueryInstruction(var instructionType : String) {
     oos.writeObject(this)
     val inStream = new ByteArrayInputStream(outStream.toByteArray)
     val ois = new ObjectInputStream(inStream)
-    ois.readObject.asInstanceOf[QueryInstruction]
+    val returnedObj = ois.readObject
+    returnedObj.asInstanceOf[QueryInstruction]
   } catch {
     case e: IOException =>
       null
@@ -81,6 +85,7 @@ trait QueryPlan {
 }
 
 /** Transformations convert 1 instruction to another instruction. */
-abstract class Transformation {
+@SerialVersionUID(2L)
+abstract class Transformation extends Serializable {
   def transform(input : QueryInstruction) : QueryInstruction
 }

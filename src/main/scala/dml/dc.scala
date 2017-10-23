@@ -2,17 +2,17 @@ package dml
 
 import opt.{ConstraintStub, QueryInstruction, RelationStub}
 
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable
 
 class dc {
 
 }
 
 class DataRelationStub(var dataRelationName : String,
-                       var dataRelationContent : Array[Array[String]]) extends RelationStub(dataRelationName, Set())
+                       var dataRelationContent : Array[Array[String]]) extends RelationStub(dataRelationName, mutable.Set())
 
-class Find(var relations : ArrayBuffer[Either[RelationStub, QueryInstruction]],
-           var parameters : ArrayBuffer[ConstraintStub]) extends QueryInstruction("find") {
+class Find(var relations : mutable.ArrayBuffer[Either[RelationStub, QueryInstruction]],
+           var parameters : mutable.ArrayBuffer[ConstraintStub]) extends QueryInstruction("find") {
 
   override def checkSchema(): Boolean = {
     if ((relations.length == 1) && (parameters.length == 1)) {
