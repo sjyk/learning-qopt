@@ -87,5 +87,7 @@ trait QueryPlan {
 /** Transformations convert 1 instruction to another instruction. */
 @SerialVersionUID(2L)
 abstract class Transformation extends Serializable {
-  def transform(input : QueryInstruction) : QueryInstruction
+  def transform(input : QueryInstruction, kargs : Array[Any] = Array()) : QueryInstruction
+
+  def featurize(input : QueryInstruction) : Vector[Int]
 }
