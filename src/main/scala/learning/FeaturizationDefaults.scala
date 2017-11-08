@@ -1,7 +1,16 @@
 package learning
 
-import opt.QueryInstruction
+import dml.Join
+import opt.{ConstraintStub, QueryInstruction, RelationStub}
+
 import scala.collection.mutable.ArrayBuffer
+
+
+object BaseFeaturization {
+  def getBaseSystemFeaturization: ArrayBuffer[Int] = {
+    ArrayBuffer[Int]()
+  }
+}
 
 /**
   * Utility class of default featurizations
@@ -33,5 +42,16 @@ object FeaturizationDefaults {
     }
     featureVector = relationVector ++ constraintVector
     (featureVector, relationVector, constraintVector)
+  }
+
+  // use isCommutative flag
+  // use isAssociative?
+  /* Global list is a parameter in case we want to do a one-hot featurization */
+  def joinFeaturization(r1 : RelationStub, r2 : RelationStub, globalRelations : Vector[String]): (ArrayBuffer[Int], ArrayBuffer[Int]) = {
+    val dummyR1 = new Join(ArrayBuffer[Either[RelationStub, QueryInstruction]](Left(r1)), ArrayBuffer[ConstraintStub]())
+    val r1Features = planFeaturization(dummyR1)._2
+    val dummyR2 = new Join(ArrayBuffer[Either[RelationStub, QueryInstruction]](Left(r2)), ArrayBuffer[ConstraintStub]())
+    val r2Features = planFeaturization(dummyR2)._2
+    (r1Features ++ r2Features, r2Features ++ r1Features)
   }
 }

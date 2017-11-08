@@ -12,7 +12,7 @@ class Join(var relations : ArrayBuffer[Either[RelationStub, QueryInstruction]],
            var parameters : ArrayBuffer[ConstraintStub]) extends QueryInstruction("join") {
 
   override def checkSchema(): Boolean = {
-    if (relations.length > 2) {
+    if (relations.size > 2) {
       false
     } else {
       true
@@ -41,5 +41,26 @@ class Join(var relations : ArrayBuffer[Either[RelationStub, QueryInstruction]],
     val intersection = leftTable.relationContent & rightTable.relationContent
     val joinName = leftTable.relationName + " * " + rightTable.relationName
     new RelationStub(joinName, intersection)
+  }
+
+  override def cost: Double = {
+    var cost = 0.0
+    var joinCopy = this.deepClone.asInstanceOf[Join]
+    for (relation <- joinCopy.relations) {
+      if (relation.isRight) {
+        cost += relation.right.get.cost
+      } else {
+        cost += relation.left.get.initCost
+      }
+    }
+    var ioCost = joinCopy.relations(0).left.get.relationContent.size
+    for (i <- 1 to joinCopy.relations.size + 1) {
+      var relation = joinCopy.relations(i)
+      if (relation.isRight) {
+        cost *= relation.right.get.execute.relationContent.size
+      }
+    }
+    cost += ioCost
+    cost
   }
 }

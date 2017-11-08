@@ -1,7 +1,7 @@
 package learning
 
 import opt.{QueryInstruction, RelationStub, Transformation}
-import dml.{IdentityTransform, OtherTransform}
+import dml.{IdentityTransform, JoinRandomSwap}
 
 import scala.collection.mutable
 import scala.util.{Failure, Random, Success, Try}
@@ -12,7 +12,7 @@ import scala.util.{Failure, Random, Success, Try}
   * more efficient to sample fast. Rejection sampling is MC sampling with all the actions as allowed transformations,
   * and the sampler will default to this if the instruction does not implement the allowed transformations API.
   */
-class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var maxDepth : Option[Int] = None) {
+class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var maxAttempts : Option[Int] = None) {
 
   val isMC : Boolean = {
     val accessor = Try(initialPlan.getAllowedTransformations(initialPlan))
@@ -25,11 +25,11 @@ class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var max
       }
     }
   }
-  val allTransformations : Vector[Transformation] = mutable.Set[Transformation](new IdentityTransform, new OtherTransform).toVector
-  val transformationMaxAttempts : Int = maxDepth.getOrElse(1000)
+  val allTransformations : Vector[Transformation] = mutable.Set[Transformation](new IdentityTransform, new JoinRandomSwap).toVector
+  val transformationMaxAttempts : Int = maxAttempts.getOrElse(1000)
 
   @throws(classOf[Exception])
-  private def randomSampleMC() : Array[Transformation] = {
+  private def randomSampleMC() : (Array[Transformation], QueryInstruction) = {
     val rnd = new Random()
     val transformationList = new Array[Transformation](sampleDepth)
     val pType = initialPlan.getClass
@@ -43,11 +43,11 @@ class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var max
     if (!PlanValidator.validate(planCopy, Some(initialPlan))) {
       throw new Exception("MC sampler has generated an invalid plan.")
     }
-    transformationList
+    (transformationList, planCopy)
   }
 
   @throws(classOf[Exception])
-  private def randomSampleRejection() : Array[Transformation] = {
+  private def randomSampleRejection() : (Array[Transformation], QueryInstruction) = {
     var i = 0
     while (i < transformationMaxAttempts) {
       /** Sample a transformation order */
@@ -57,7 +57,7 @@ class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var max
         planCopy = x.transform(planCopy)
       }
       if (PlanValidator.validate(planCopy, Some(initialPlan))) {
-        return sampledTransform
+        return (sampledTransform, planCopy)
       }
       i += 1
     }
@@ -66,7 +66,7 @@ class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var max
 
   /** Return an ArraySeq[Transformation] of length sampleDepth */
   @throws(classOf[Exception])
-  def sample(): Array[Transformation] = {
+  def sample(): (Array[Transformation], QueryInstruction) = {
     if (isMC) {
       randomSampleMC()
     } else {

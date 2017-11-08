@@ -3,6 +3,8 @@ package opt
 import scala.collection.mutable.{ArrayBuffer, Set}
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, IOException, ObjectInputStream, ObjectOutputStream}
 
+import org.apache.spark.ml.linalg.DenseMatrix
+
 /** Set of allowed instructions */
 object validInstructionTypes {
   val validTypes : Seq[String] = Seq("join", "find")
@@ -10,7 +12,7 @@ object validInstructionTypes {
 
 @SerialVersionUID(2L)
 /** Stub classes for relations and constraints - these will need to be customized into the Spark type we want. */
-class RelationStub(var relationName : String, var relationContent : Set[Array[String]]) extends Serializable {
+class RelationStub(var relationName : String, var relationContent : Set[Array[String]], var initCost : Int = 0) extends Serializable {
   override def toString: String = {
     relationName + ", content: " + relationContent.toString()
   }
@@ -44,6 +46,8 @@ abstract class QueryInstruction(var instructionType : String) extends Serializab
 
   @throws(classOf[Exception])
   def execute : RelationStub
+
+  def cost : Double
 
   override def equals(obj: scala.Any): Boolean = {
     if (!obj.isInstanceOf[QueryInstruction]) {
@@ -87,7 +91,10 @@ trait QueryPlan {
 /** Transformations convert 1 instruction to another instruction. */
 @SerialVersionUID(2L)
 abstract class Transformation extends Serializable {
+
+  var input : Option[QueryInstruction]
+
   def transform(input : QueryInstruction, kargs : Array[Any] = Array()) : QueryInstruction
 
-  def featurize(input : QueryInstruction) : Vector[Int]
+  def featurize : DenseMatrix
 }

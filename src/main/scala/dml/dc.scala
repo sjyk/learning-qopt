@@ -15,7 +15,7 @@ class Find(var relations : mutable.ArrayBuffer[Either[RelationStub, QueryInstruc
            var parameters : mutable.ArrayBuffer[ConstraintStub]) extends QueryInstruction("find") {
 
   override def checkSchema(): Boolean = {
-    if ((relations.length == 1) && (parameters.length == 1)) {
+    if ((relations.size == 1) && (parameters.size == 1)) {
       for (p <- parameters) {
         if (!checkValidConstraint(p)) {
           throw new Exception("Invalid parameter")
@@ -27,7 +27,7 @@ class Find(var relations : mutable.ArrayBuffer[Either[RelationStub, QueryInstruc
   }
 
   def checkValidConstraint(constraintStub: ConstraintStub): Boolean = {
-    if (constraintStub.constraints.length != 3) {
+    if (constraintStub.constraints.size != 3) {
       return false
     }
     if (constraintStub.constraints(0).isLeft) {
@@ -51,7 +51,7 @@ class Find(var relations : mutable.ArrayBuffer[Either[RelationStub, QueryInstruc
       relations(0).left.get.asInstanceOf[DataRelationStub]
     }
     relations(0) = Left(relation)
-    /* if parameters.length is > 1, that means that we have combined multiple sets of constraints into 1 */
+    /* if parameters.size is > 1, that means that we have combined multiple sets of constraints into 1 */
     for (paramSet <- parameters) {
       val find = paramSet.constraints(0).right.getOrElse("")
       val replace = paramSet.constraints(1).right.getOrElse("")
@@ -63,5 +63,9 @@ class Find(var relations : mutable.ArrayBuffer[Either[RelationStub, QueryInstruc
       }
     }
     relation
+  }
+
+  override def cost: Double = {
+    0.0
   }
 }
