@@ -20,8 +20,9 @@ class IdentityTransform extends Transformation {
     i
   }
 
-  override def featurize: Vector[Int] = {
-    FeaturizationDefaults.planFeaturization(input.get)._1.toVector
+  override def featurize: DenseMatrix = {
+    val featurization = FeaturizationDefaults.planFeaturization(input.get)._1.toArray
+    new DenseMatrix(1, featurization.length, featurization)
   }
 }
 
@@ -109,7 +110,8 @@ class RandomParallelFindMerge extends Transformation {
     i
   }
 
-  override def featurize: Vector[Int] = {
-    FeaturizationDefaults.planFeaturization(input.get)._1.toVector
+  override def featurize: DenseMatrix = {
+    val featurization = FeaturizationDefaults.planFeaturization(input.get)._1.toArray
+    new DenseMatrix(1, featurization.length, featurization)
   }
 }

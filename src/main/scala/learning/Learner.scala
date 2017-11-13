@@ -62,7 +62,7 @@ class Learner(maxWidth : Int) {
       .builder
       .appName("Learning Query Optimizer")
       .getOrCreate()
-    sSession = Some(spark
+    sSession = Some(spark)
     val (trainData, trainLabels) = genTraining(initialPlan)
     val dfPrep = trainData.rowIter.toSeq.zipWithIndex.map(x => (x._1, trainLabels(x._2)))
     val training = spark.createDataFrame(dfPrep).toDF("features", "cost")
@@ -77,14 +77,14 @@ class Learner(maxWidth : Int) {
     true
   }
 
-  def predict(initialPlan : QueryInstruction) : DataFrame = {
+  def predict(plan : QueryInstruction) : DataFrame = {
     if (storedModel.isEmpty) {
-      val modelBuilt = buildModel(initialPlan)
+      val modelBuilt = buildModel(plan)
       if (!modelBuilt) {
         throw new Exception("Model failed to build.")
       }
     }
-    val pSampler = new Sampler(initialPlan, 1, false)
+    val pSampler = new Sampler(plan, 1, false)
     val (transforms, instructions) = pSampler.sampleN(50)
     val featurizedTransforms = transforms.map(t => genFeatureMatrix(t))
     val tMatrix = Matrices.vertcat(featurizedTransforms).rowIter.toSeq.map(x=>(x, 0))
