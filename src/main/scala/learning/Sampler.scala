@@ -4,6 +4,7 @@ import opt.{QueryInstruction, RelationStub, Transformation}
 import dml.{IdentityTransform, JoinRandomSwap}
 
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 import scala.util.{Failure, Random, Success, Try}
 
 /** This class needs to sample from a space of possible outcomes.
@@ -12,7 +13,7 @@ import scala.util.{Failure, Random, Success, Try}
   * more efficient to sample fast. Rejection sampling is MC sampling with all the actions as allowed transformations,
   * and the sampler will default to this if the instruction does not implement the allowed transformations API.
   */
-class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var maxAttempts : Option[Int] = None) {
+class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var withValidation : Boolean = true, var maxAttempts : Option[Int] = None) {
 
   val isMC : Boolean = {
     val accessor = Try(initialPlan.getAllowedTransformations(initialPlan))
@@ -40,7 +41,7 @@ class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var max
       transformationList.update(i, randomTransform)
       planCopy = randomTransform.transform(planCopy)
     }
-    if (!PlanValidator.validate(planCopy, Some(initialPlan))) {
+    if (withValidation && (!PlanValidator.validate(planCopy, Some(initialPlan)))) {
       throw new Exception("MC sampler has generated an invalid plan.")
     }
     (transformationList, planCopy)
@@ -56,7 +57,9 @@ class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var max
       for (x <- sampledTransform) {
         planCopy = x.transform(planCopy)
       }
-      if (PlanValidator.validate(planCopy, Some(initialPlan))) {
+      if (withValidation && PlanValidator.validate(planCopy, Some(initialPlan))) {
+        return (sampledTransform, planCopy)
+      } else if (!withValidation) {
         return (sampledTransform, planCopy)
       }
       i += 1
@@ -72,6 +75,17 @@ class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var max
     } else {
       randomSampleRejection()
     }
+  }
+
+  def sampleN(n : Int): (Array[Array[Transformation]], Array[QueryInstruction]) = {
+    var sampledTransforms : ArrayBuffer[Array[Transformation]] = ArrayBuffer[Array[Transformation]]()
+    var sampledInstructions : ArrayBuffer[QueryInstruction] = ArrayBuffer[QueryInstruction]()
+    for (i <- 1 to n) {
+      val (tList, instr) = sample()
+      sampledTransforms.append(tList)
+      sampledInstructions.append(instr)
+    }
+    (sampledTransforms.toArray, sampledInstructions.toArray)
   }
 }
 

@@ -1,24 +1,23 @@
 package learning
 
-import opt.QueryInstruction
+import opt.{QueryInstruction, Transformation}
 import org.apache.spark.ml.linalg.{Matrices, Matrix, Vector, Vectors}
 import org.apache.spark.ml.regression.{GeneralizedLinearRegression, GeneralizedLinearRegressionModel}
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 
 import scala.collection.mutable.ArrayBuffer
 
 class Learner(maxWidth : Int) {
 
   var storedModel : Option[GeneralizedLinearRegressionModel] = None
+  var sSession : Option[SparkSession] = None
 
-  def genTrainingRun(initialPlan : QueryInstruction, maxWidth : Int): (Matrix, Vector) = {
-    val planSampler = new Sampler(initialPlan, 5)
-    val sampledTransform = planSampler.sample()._1
+  def genFeatureMatrix(transforms : Array[Transformation]): Matrix = {
     var nRows = 0
     var content = ArrayBuffer[Double]()
     val featureBase = BaseFeaturization.getBaseSystemFeaturization
     val tFeatureMaxWidth = maxWidth - featureBase.size
-    for (t <- sampledTransform) {
+    for (t <- transforms) {
       val transformMatrix = t.featurize
       for (row <- transformMatrix.rowIter) {
         var nRow : Option[Array[Double]] = None
@@ -33,10 +32,16 @@ class Learner(maxWidth : Int) {
         nRows += 1
       }
     }
+    Matrices.dense(nRows, maxWidth, content.toArray)
+  }
+
+  def genTrainingRun(initialPlan : QueryInstruction, maxWidth : Int): (Matrix, Vector) = {
+    val planSampler = new Sampler(initialPlan, 5)
+    val sampledTransform = planSampler.sample()._1
     // sample a plan, evaluate the total, cost, and keep a running X_train and y
-    val Xtrain = Matrices.dense(nRows, maxWidth, content.toArray)
+    val Xtrain = genFeatureMatrix(sampledTransform)
     val planCost = initialPlan.cost
-    val ytrain = Vectors.dense(Array.fill[Double](nRows){planCost})
+    val ytrain = Vectors.dense(Array.fill[Double](Xtrain.numRows){planCost})
     (Xtrain, ytrain)
   }
 
@@ -56,7 +61,8 @@ class Learner(maxWidth : Int) {
     val spark = SparkSession
       .builder
       .appName("Learning Query Optimizer")
-      .getOrCreate()_
+      .getOrCreate()
+    sSession = Some(spark
     val (trainData, trainLabels) = genTraining(initialPlan)
     val dfPrep = trainData.rowIter.toSeq.zipWithIndex.map(x => (x._1, trainLabels(x._2)))
     val training = spark.createDataFrame(dfPrep).toDF("features", "cost")
@@ -69,5 +75,21 @@ class Learner(maxWidth : Int) {
     val model = glr.fit(training)
     storedModel = Some(model)
     true
+  }
+
+  def predict(initialPlan : QueryInstruction) : DataFrame = {
+    if (storedModel.isEmpty) {
+      val modelBuilt = buildModel(initialPlan)
+      if (!modelBuilt) {
+        throw new Exception("Model failed to build.")
+      }
+    }
+    val pSampler = new Sampler(initialPlan, 1, false)
+    val (transforms, instructions) = pSampler.sampleN(50)
+    val featurizedTransforms = transforms.map(t => genFeatureMatrix(t))
+    val tMatrix = Matrices.vertcat(featurizedTransforms).rowIter.toSeq.map(x=>(x, 0))
+    val inputDF = sSession.get.createDataFrame(tMatrix).toDF("features", "cost")
+    val predictions = storedModel.get.transform(inputDF)
+    predictions
   }
 }
