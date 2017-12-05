@@ -54,6 +54,7 @@ class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var wit
       /** Sample a transformation order */
       val sampledTransform = Array.fill(sampleDepth){allTransformations(scala.util.Random.nextInt(allTransformations.size))}
       var planCopy = initialPlan.deepClone
+      println(planCopy)
       for (x <- sampledTransform) {
         planCopy = x.transform(planCopy)
       }

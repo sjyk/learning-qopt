@@ -14,7 +14,16 @@ object validInstructionTypes {
 /** Stub classes for relations and constraints - these will need to be customized into the Spark type we want. */
 class RelationStub(var relationName : String, var relationContent : Set[Array[String]], var initCost : Int = 0) extends Serializable {
   override def toString: String = {
-    relationName + ", content: " + relationContent.toString()
+    relationName
+  }
+
+  override def equals(obj: scala.Any): Boolean = {
+    if (!obj.isInstanceOf[RelationStub]) {
+      return false
+    }
+    val otherRelation = obj.asInstanceOf[RelationStub]
+    // Name and initCost aren't stable checks for equality.
+    otherRelation.relationContent.equals(relationContent)
   }
 }
 
@@ -51,12 +60,15 @@ abstract class QueryInstruction(var instructionType : String) extends Serializab
 
   override def equals(obj: scala.Any): Boolean = {
     if (!obj.isInstanceOf[QueryInstruction]) {
+      println("This isn't a QI")
       return false
     }
     val otherInstruction = obj.asInstanceOf[QueryInstruction]
     if (!otherInstruction.instructionType.equals(instructionType)) {
+      println("Invalid type parameter")
       return false
     } else if (!(otherInstruction.parameters.equals(parameters) && otherInstruction.relations.equals(relations))) {
+      println("params or relations don't match")
       return false
     }
     true
@@ -94,7 +106,13 @@ abstract class Transformation extends Serializable {
 
   var input : Option[QueryInstruction]
 
+  var canonicalName : String
+
   def transform(input : QueryInstruction, kargs : Array[Any] = Array()) : QueryInstruction
 
   def featurize : DenseMatrix
+
+  override def toString: String = {
+    canonicalName
+  }
 }

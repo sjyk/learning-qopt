@@ -7,8 +7,8 @@ import scala.collection.mutable.ArrayBuffer
 
 
 object BaseFeaturization {
-  def getBaseSystemFeaturization: ArrayBuffer[Int] = {
-    ArrayBuffer[Int]()
+  def getBaseSystemFeaturization: ArrayBuffer[Double] = {
+    ArrayBuffer[Double]()
   }
 }
 

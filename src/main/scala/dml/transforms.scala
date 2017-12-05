@@ -15,6 +15,8 @@ class IdentityTransform extends Transformation {
 
   var input : Option[QueryInstruction] = None
 
+  override var canonicalName: String = "Identity"
+
   override def transform(i : QueryInstruction, kargs : Array[Any] = Array()): QueryInstruction = {
     input = Some(i)
     i
@@ -32,6 +34,7 @@ class JoinRandomSwap extends Transformation {
   var a1 : Option[RelationStub] = None
   var a2 : Option[RelationStub] = None
   var instrList : Option[Vector[String]] = None
+  override var canonicalName: String = "RandomSwap"
 
   def getRelationSet(input : QueryInstruction): mutable.Map[String, RelationStub] = {
     var relationSet = mutable.Map[String, RelationStub]()
@@ -50,6 +53,8 @@ class JoinRandomSwap extends Transformation {
   /** Build a set of the relations in this query plan. Pick 2 without replacement. Swap them. */
   override def transform(input: QueryInstruction, kargs : Array[Any] = Array()): QueryInstruction = {
     /* This swap is trivial and useless if there's only 2 relations in the table. */
+    println("Before swap:")
+    println(input)
     val relationSet = getRelationSet(input).toVector
     val r1Obj = Random.shuffle(relationSet).asInstanceOf[Vector[(String, RelationStub)]](0)
     val r1Name = r1Obj._1
@@ -64,6 +69,7 @@ class JoinRandomSwap extends Transformation {
         a2 = Some(r2_obj._2)
       }
     }
+    println(r1Name, r2Name)
     var foundFirst = false
     var foundSecond = false
     var instrRef = input
@@ -72,7 +78,7 @@ class JoinRandomSwap extends Transformation {
     /* We will make the assumption that the left relation (relations(0)) of the plan will be a single, non-joined
      * relation with its original name. */
     var curRelationName = instrRef.relations(0).left.get.relationName
-    while (!foundFirst && !foundSecond) {
+    while (!(foundFirst && foundSecond)) {
       if (curRelationName == r1Name) {
         firstRef = instrRef
         foundFirst = true
@@ -87,10 +93,13 @@ class JoinRandomSwap extends Transformation {
         curRelationName = instrRef.relations(1).left.get.relationName
       }
     }
+    /* bug here */
     /* swap the relations */
     val tmpRel = firstRef.relations(0)
     firstRef.relations(0) = secondRef.relations(0)
     secondRef.relations(0) = tmpRel
+    println("After swap:")
+    println(input)
     input
   }
 
@@ -104,6 +113,8 @@ class JoinRandomSwap extends Transformation {
 class RandomParallelFindMerge extends Transformation {
 
   var input : Option[QueryInstruction] = None
+
+  override var canonicalName: String = "RandomParallelFindMerge"
 
   override def transform(i: QueryInstruction, kargs: Array[Any]): QueryInstruction = {
     input = Some(i)

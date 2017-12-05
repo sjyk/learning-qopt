@@ -54,7 +54,7 @@ class Join(var relations : ArrayBuffer[Either[RelationStub, QueryInstruction]],
       }
     }
     var ioCost = joinCopy.relations(0).left.get.relationContent.size
-    for (i <- 1 to joinCopy.relations.size + 1) {
+    for (i <- 1 until joinCopy.relations.size) {
       var relation = joinCopy.relations(i)
       if (relation.isRight) {
         cost *= relation.right.get.execute.relationContent.size
@@ -62,5 +62,17 @@ class Join(var relations : ArrayBuffer[Either[RelationStub, QueryInstruction]],
     }
     cost += ioCost
     cost
+  }
+}
+
+object JoinUtils {
+  def initJoinFromList(relations : ArrayBuffer[RelationStub]) : Join = {
+    if (relations.size == 2) {
+      new Join(ArrayBuffer[Either[RelationStub, QueryInstruction]](Left(relations(0)), Left(relations(1))), ArrayBuffer[ConstraintStub]())
+    } else {
+      val transformedRelations = ArrayBuffer[Either[RelationStub, QueryInstruction]](Left(relations(0)), Right(initJoinFromList(relations.slice(1, relations.size))))
+      val params = ArrayBuffer[ConstraintStub]()
+      new Join(transformedRelations, params)
+    }
   }
 }
