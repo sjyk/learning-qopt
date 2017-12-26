@@ -2,9 +2,8 @@ package learning
 
 import opt.{QueryInstruction, RelationStub, Transformation}
 import org.apache.spark.mllib.linalg.{Matrices, Matrix, Vector, Vectors}
-import org.apache.spark.mllib.classification.{LogisticRegressionModel, LogisticRegressionWithLBFGS}
 import org.apache.spark.mllib.regression.{LabeledPoint, LinearRegressionModel, LinearRegressionWithSGD}
-import org.apache.spark.sql.{Column, DataFrame, SparkSession}
+import org.apache.spark.sql.SparkSession
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -71,17 +70,9 @@ class Learner(maxWidth : Int) {
     val (trainData, trainLabels) = genTraining(initialPlan)
     val dfPrep = trainData.rowIter.toSeq.zipWithIndex.map(x => LabeledPoint(trainLabels(x._2), x._1))
     val training = spark.sparkContext.parallelize(dfPrep)
-//    val training = spark.createDataFrame(dfPrep).toDF("features", "cost")
-//    val m = new LogisticRegressionWithLBFGS().setNumClasses(60).setValidateData(false)
-//    val glr = new LinearRegression()
-//      .setRegParam(0.3)
-//      .setElasticNetParam(0.8)
-//      .setLabelCol("cost")
-//      .setFeaturesCol("features")
     println("Fitting the model")
     val m = new LinearRegressionWithSGD().setValidateData(false)
     val model = m.run(training)
-//    val model = glr.fit(training)
     // Summarize the model over the training set and print out some metrics
     // Print the coefficients and intercept for linear regression
     println("Finished fitting the model.")

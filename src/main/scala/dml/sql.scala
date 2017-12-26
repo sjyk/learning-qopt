@@ -4,10 +4,6 @@ import opt.{ConstraintStub, QueryInstruction, RelationStub}
 
 import scala.collection.mutable.ArrayBuffer
 
-class sql {
-
-}
-
 class Join(var relations : ArrayBuffer[Either[RelationStub, QueryInstruction]],
            var parameters : ArrayBuffer[ConstraintStub]) extends QueryInstruction("join") {
 
@@ -47,37 +43,6 @@ class Join(var relations : ArrayBuffer[Either[RelationStub, QueryInstruction]],
     cost + IOCost
   }
 
-//  override def cost: Double = {
-//    var cost = 0.0
-//    var joinCopy = this.deepClone.asInstanceOf[Join]
-//    var rCosts = new ArrayBuffer[Double]()
-//    for (relation <- joinCopy.relations) {
-//      if (relation.isRight) {
-//        rCosts += relation.right.get.cost
-//      } else {
-//        rCosts += relation.left.get.initCost
-//      }
-//    }
-//    var ioCost = joinCopy.relations(0).left.get.relationContent.size
-//    println(joinCopy.relations(0).left.get.relationName)
-//    println(joinCopy.relations(0).left.get.relationContent.size)
-//    for (i <- 1 until joinCopy.relations.size) {
-//      println(joinCopy.relations(i))
-//
-//      var relation = joinCopy.relations(i)
-//      if (relation.isRight) {
-//        val rSize = relation.right.get.execute.relationContent.size
-//        println(s"rSize: ${rSize}")
-//        ioCost *= relation.right.get.execute.relationContent.size
-//      } else {
-//        ioCost *= relation.left.get.relationContent.size
-//      }
-//    }
-//    println(s"iocost - ${ioCost}")
-//    cost += ioCost
-//    cost
-//  }
-
   override def cost : Double = {
     val joinCopy = this.deepClone.asInstanceOf[Join]
     println(joinCopy.toString)
@@ -86,7 +51,6 @@ class Join(var relations : ArrayBuffer[Either[RelationStub, QueryInstruction]],
         joinCopy.relations(i) = Left(joinCopy.relations(i).right.get.execute)
       }
     }
-    println(joinCopy.toString)
     val left = joinCopy.relations(0).left.get
     val right = joinCopy.relations(1).left.get
     perJoinCost(left.initCost, left.relationContent.size, right.initCost, right.relationContent.size)
