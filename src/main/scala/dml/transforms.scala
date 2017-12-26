@@ -7,6 +7,8 @@ import scala.util.Random
 import scala.collection.mutable
 import org.apache.spark.ml.linalg.DenseMatrix
 
+import scala.util.control.Exception
+
 class transforms {
 
 }
@@ -53,8 +55,6 @@ class JoinRandomSwap extends Transformation {
   /** Build a set of the relations in this query plan. Pick 2 without replacement. Swap them. */
   override def transform(input: QueryInstruction, kargs : Array[Any] = Array()): QueryInstruction = {
     /* This swap is trivial and useless if there's only 2 relations in the table. */
-    println("Before swap:")
-    println(input)
     val relationSet = getRelationSet(input).toVector
     val r1Obj = Random.shuffle(relationSet).asInstanceOf[Vector[(String, RelationStub)]](0)
     val r1Name = r1Obj._1
@@ -69,37 +69,43 @@ class JoinRandomSwap extends Transformation {
         a2 = Some(r2_obj._2)
       }
     }
-    println(r1Name, r2Name)
     var foundFirst = false
     var foundSecond = false
     var instrRef = input
-    var firstRef : QueryInstruction = null
-    var secondRef : QueryInstruction = null
+    var firstRef : Option[QueryInstruction] = None
+    var firstRelRef : Option[RelationStub] = None
+    var firstIdx : Int = 0
+    var secondRef : Option[QueryInstruction] = None
+    var secondRelRef : Option[RelationStub] = None
+    var secondIdx : Int = 0
     /* We will make the assumption that the left relation (relations(0)) of the plan will be a single, non-joined
      * relation with its original name. */
-    var curRelationName = instrRef.relations(0).left.get.relationName
+    var curRelation = instrRef.relations(0).left.get
+    var idx = 0
     while (!(foundFirst && foundSecond)) {
-      if (curRelationName == r1Name) {
-        firstRef = instrRef
+      if (curRelation.relationName == r1Name) {
+        firstRef = Some(instrRef)
+        firstRelRef = Some(curRelation)
+        firstIdx = idx
         foundFirst = true
-      } else if (curRelationName == r2Name) {
-        secondRef = instrRef
+      } else if (curRelation.relationName == r2Name) {
+        secondRef = Some(instrRef)
+        secondRelRef = Some(curRelation)
+        secondIdx = idx
         foundSecond = true
       }
       if (instrRef.relations(1).isRight) {
         instrRef = instrRef.relations(1).right.get
-        curRelationName = instrRef.relations(0).left.get.relationName
+        curRelation = instrRef.relations(0).left.get
+        idx = 0
       } else {
-        curRelationName = instrRef.relations(1).left.get.relationName
+        curRelation = instrRef.relations(1).left.get
+        idx = 1
       }
     }
-    /* bug here */
     /* swap the relations */
-    val tmpRel = firstRef.relations(0)
-    firstRef.relations(0) = secondRef.relations(0)
-    secondRef.relations(0) = tmpRel
-    println("After swap:")
-    println(input)
+    firstRef.get.relations(firstIdx) = Left(secondRelRef.get)
+    secondRef.get.relations(secondIdx) = Left(firstRelRef.get)
     input
   }
 

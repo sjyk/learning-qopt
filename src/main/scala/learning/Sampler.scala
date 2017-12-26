@@ -26,7 +26,7 @@ class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var wit
       }
     }
   }
-  val allTransformations : Vector[Transformation] = mutable.Set[Transformation](new IdentityTransform, new JoinRandomSwap).toVector
+  val allTransformations : Vector[Transformation] = mutable.Set[Transformation](new JoinRandomSwap).toVector
   val transformationMaxAttempts : Int = maxAttempts.getOrElse(1000)
 
   @throws(classOf[Exception])
@@ -54,7 +54,6 @@ class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var wit
       /** Sample a transformation order */
       val sampledTransform = Array.fill(sampleDepth){allTransformations(scala.util.Random.nextInt(allTransformations.size))}
       var planCopy = initialPlan.deepClone
-      println(planCopy)
       for (x <- sampledTransform) {
         planCopy = x.transform(planCopy)
       }
@@ -93,7 +92,7 @@ class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var wit
 /** Class that checks whether a sampled plan returns the same result as the original instruction. */
 object PlanValidator {
   def validate(proposedPlan : QueryInstruction, plan : Option[QueryInstruction] = None, expectedResult : Option[RelationStub] = None) : Boolean = {
-    val expected  = if (plan.isDefined) {plan.get.execute} else {expectedResult.get}
-    expected.equals(proposedPlan.execute)
+    val expected  = if (plan.isDefined) {plan.get.deepClone.execute} else {expectedResult.get}
+    expected.equals(proposedPlan.deepClone.execute)
   }
 }

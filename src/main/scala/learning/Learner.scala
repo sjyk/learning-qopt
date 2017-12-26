@@ -1,8 +1,9 @@
 package learning
 
 import opt.{QueryInstruction, RelationStub, Transformation}
-import org.apache.spark.ml.linalg.{Matrices, Matrix, Vector, Vectors}
-import org.apache.spark.ml.regression.{GeneralizedLinearRegression, GeneralizedLinearRegressionModel, LinearRegression, LinearRegressionModel}
+import org.apache.spark.mllib.linalg.{Matrices, Matrix, Vector, Vectors}
+import org.apache.spark.mllib.classification.{LogisticRegressionModel, LogisticRegressionWithLBFGS}
+import org.apache.spark.mllib.regression.{LabeledPoint, LinearRegressionModel, LinearRegressionWithSGD}
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 
 import scala.collection.mutable.ArrayBuffer
@@ -37,15 +38,16 @@ class Learner(maxWidth : Int) {
 
   def genTrainingRun(initialPlan : QueryInstruction): (Matrix, Vector) = {
     val planSampler = new Sampler(initialPlan, 5)
-    val sampledTransform = planSampler.sample()._1
+    val (sampledTransform, sampledPlan) = planSampler.sample()
     // sample a plan, evaluate the total, cost, and keep a running X_train and y
     val Xtrain = genFeatureMatrix(sampledTransform)
-    val planCost = initialPlan.cost
+    val planCost = sampledPlan.cost
+    println(s"Plan cost ${planCost}")
     val ytrain = Vectors.dense(Array.fill[Double](Xtrain.numRows){planCost})
     (Xtrain, ytrain)
   }
 
-  def genTraining(initialPlan : QueryInstruction, maxIter : Int = 100): (Matrix, Vector) = {
+  def genTraining(initialPlan : QueryInstruction, maxIter : Int = 500): (Matrix, Vector) = {
     var XContent = ArrayBuffer[Matrix]()
     var yContent = Array[Double]()
     for (i <- 1 to maxIter) {
@@ -67,24 +69,27 @@ class Learner(maxWidth : Int) {
     sSession = Some(spark)
     println("Generating training data")
     val (trainData, trainLabels) = genTraining(initialPlan)
-    val dfPrep = trainData.rowIter.toSeq.zipWithIndex.map(x => (x._1, trainLabels(x._2)))
-    val training = spark.createDataFrame(dfPrep).toDF("features", "cost")
-    val glr = new LinearRegression()
-      .setRegParam(0.3)
-      .setElasticNetParam(0.8)
-      .setLabelCol("cost")
-      .setFeaturesCol("features")
+    val dfPrep = trainData.rowIter.toSeq.zipWithIndex.map(x => LabeledPoint(trainLabels(x._2), x._1))
+    val training = spark.sparkContext.parallelize(dfPrep)
+//    val training = spark.createDataFrame(dfPrep).toDF("features", "cost")
+//    val m = new LogisticRegressionWithLBFGS().setNumClasses(60).setValidateData(false)
+//    val glr = new LinearRegression()
+//      .setRegParam(0.3)
+//      .setElasticNetParam(0.8)
+//      .setLabelCol("cost")
+//      .setFeaturesCol("features")
     println("Fitting the model")
-    val model = glr.fit(training)
+    val m = new LinearRegressionWithSGD().setValidateData(false)
+    val model = m.run(training)
+//    val model = glr.fit(training)
     // Summarize the model over the training set and print out some metrics
     // Print the coefficients and intercept for linear regression
-    println(s"Coefficients: ${model.coefficients} Intercept: ${model.intercept}")
-    println("Finished fitting the model")
+    println("Finished fitting the model.")
     storedModel = Some(model)
     true
   }
 
-  def predict(plan : QueryInstruction, tDepth : Int = 1) : DataFrame = {
+  def predict(plan : QueryInstruction, tDepth : Int = 1) : (Array[QueryInstruction], Array[Double]) = {
     if (storedModel.isEmpty) {
       val modelBuilt = buildModel(plan)
       if (!modelBuilt) {
@@ -93,23 +98,32 @@ class Learner(maxWidth : Int) {
     }
     val pSampler = new Sampler(plan, tDepth, false)
     val (transforms, instructions) = pSampler.sampleN(50)
-    println(transforms.deep.mkString("\n"))
-    println(instructions.mkString("\n"))
     val featurizedTransforms = transforms.map(t => genFeatureMatrix(t))
-    val tMatrix = Matrices.vertcat(featurizedTransforms).rowIter.toSeq.map(x=>(x, 0))
-    val inputDF = sSession.get.createDataFrame(tMatrix).toDF("features", "cost")
-    val predictions = storedModel.get.transform(inputDF)
-    predictions.select("prediction", "cost").show(50)
+    val tMatrix = Matrices.vertcat(featurizedTransforms)
+    val dfPrep = tMatrix.rowIter.toSeq
+    val training = sSession.get.sparkContext.parallelize(dfPrep)
+    val predictions = storedModel.get.predict(training)
+    println(predictions.collect().mkString("\n"))
     println("Finished predict loop")
-    predictions
+    (instructions, predictions.collect())
   }
 
+  /* Predict and find the best value plan */
   def optimizeAndExecute(plan : QueryInstruction) : RelationStub = {
-    // predict,
-    var result = predict(plan)
-    println(result.rdd.toDebugString)
+    val (instructions, preds) = predict(plan)
+    var minIdx = -1
+    var min = scala.Double.MaxValue
+    for (i <- preds.indices) {
+      if (preds(i) < min) {
+        min = preds(i)
+        minIdx = i
+      }
+    }
+    val bestPlan = instructions(minIdx)
     val spark = sSession.get
     spark.stop()
-    plan.execute
+    val solution = bestPlan.execute
+    println(s"best plan had cost: ${solution.initCost}")
+    solution
   }
 }

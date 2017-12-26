@@ -12,9 +12,9 @@ object validInstructionTypes {
 
 @SerialVersionUID(2L)
 /** Stub classes for relations and constraints - these will need to be customized into the Spark type we want. */
-class RelationStub(var relationName : String, var relationContent : Set[Array[String]], var initCost : Int = 0) extends Serializable {
+class RelationStub(var relationName : String, var relationContent : Set[Seq[String]], var initCost : Double = 0) extends Serializable {
   override def toString: String = {
-    relationName
+    relationName + ", cost:" + initCost.toString
   }
 
   override def equals(obj: scala.Any): Boolean = {
