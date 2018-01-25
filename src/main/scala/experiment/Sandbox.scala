@@ -1,6 +1,7 @@
 package experiment
 
 import dml.JoinUtils
+import dml.JoinRandomSwap
 import learning.Learner
 
 import scala.collection.mutable
@@ -18,8 +19,12 @@ object Sandbox {
     val r6 = new RelationStub("f", mutable.Set(Seq("4"), Seq("2"), Seq("3"), Seq("6"), Seq("10")))
     val i = r6.relationContent & r5.relationContent
     val relations = ArrayBuffer[RelationStub](r1, r2, r3, r4, r5, r6)
-    val find = JoinUtils.initJoinFromList(relations)
-    val learner = new Learner(15)
-    learner.optimizeAndExecute(find)
+    val join = JoinUtils.initJoinFromList(relations)
+//    val nTransform = new JoinRandomSwap().transform(join)
+//    val deepest = join.resolveDeepest()
+//    println(deepest)
+//    println(join)
+    val learner = new Learner(12)
+    learner.optimizeAndExecute(join)
   }
 }

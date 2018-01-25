@@ -7,7 +7,7 @@ import scala.util.Random
 import scala.collection.mutable
 import org.apache.spark.ml.linalg.DenseMatrix
 
-import scala.util.control.Exception
+import scala.collection.mutable.ArrayBuffer
 
 class transforms {
 
@@ -35,19 +35,27 @@ class JoinRandomSwap extends Transformation {
   var input : Option[QueryInstruction] = None
   var a1 : Option[RelationStub] = None
   var a2 : Option[RelationStub] = None
-  var instrList : Option[Vector[String]] = None
+  var instrList : Option[Array[String]] = None
   override var canonicalName: String = "RandomSwap"
 
   def getRelationSet(input : QueryInstruction): mutable.Map[String, RelationStub] = {
     var relationSet = mutable.Map[String, RelationStub]()
+    var allRelations = new ArrayBuffer[String]()
     for (relation <- input.relations) {
       if (relation.isLeft) {
+        for (name <- relation.left.get.provenance) {
+          allRelations += name
+        }
         relationSet = relationSet + (relation.left.get.relationName -> relation.left.get)
       } else {
         relationSet = relationSet ++ getRelationSet(relation.right.get)
+        // the result of the previous function call will put the partial global instruction list in the instrList.
+        for (name <- instrList.get) {
+          allRelations += name
+        }
       }
     }
-    val sortedRelations = relationSet.keys.toVector.sorted
+    val sortedRelations = allRelations.toArray.sorted
     instrList = Some(sortedRelations)
     relationSet
   }
@@ -110,9 +118,14 @@ class JoinRandomSwap extends Transformation {
   }
 
   override def featurize: DenseMatrix = {
-    // we know what was selected.
-    val (f1, f2) = FeaturizationDefaults.joinFeaturization(a1.get, a2.get, instrList.get)
-    new DenseMatrix(2, f1.size, (f1 ++ f2).toArray)
+    val (f1, f2) = FeaturizationDefaults.joinOneHotFeaturization(a1.get, a2.get, instrList.get)
+    new DenseMatrix(f1.size, 1, f1.toArray).transpose
+//    val result = new DenseMatrix(f1.size, 2, (f1 ++ f2).toArray).transpose
+//    result
+  }
+
+  override def toString: String = {
+    canonicalName + "(" + a1.get.relationName + "->" + a2.get.relationName + ")"
   }
 }
 

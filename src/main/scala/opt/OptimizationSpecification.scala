@@ -12,7 +12,10 @@ object validInstructionTypes {
 
 @SerialVersionUID(2L)
 /** Stub classes for relations and constraints - these will need to be customized into the Spark type we want. */
-class RelationStub(var relationName : String, var relationContent : Set[Seq[String]], var initCost : Double = 0) extends Serializable {
+class RelationStub(var relationName : String, var relationContent : Set[Seq[String]], var initCost : Double = 0, var provenance : ArrayBuffer[String] = ArrayBuffer()) extends Serializable {
+  if (provenance.isEmpty) {
+    provenance = ArrayBuffer(relationName)
+  }
   override def toString: String = {
     relationName + ", cost:" + initCost.toString
   }
@@ -114,5 +117,20 @@ abstract class Transformation extends Serializable {
 
   override def toString: String = {
     canonicalName
+  }
+
+  def deepClone: Transformation = try {
+    val outStream = new ByteArrayOutputStream()
+    val oos = new ObjectOutputStream(outStream)
+    oos.writeObject(this)
+    val inStream = new ByteArrayInputStream(outStream.toByteArray)
+    val ois = new ObjectInputStream(inStream)
+    val returnedObj = ois.readObject
+    returnedObj.asInstanceOf[Transformation]
+  } catch {
+    case e: IOException =>
+      null
+    case e: ClassNotFoundException =>
+      null
   }
 }

@@ -44,10 +44,26 @@ object FeaturizationDefaults {
     (featureVector, relationVector, constraintVector)
   }
 
+  def oneHotFeaturization(r1 : RelationStub, globalRelations : Array[String]) : ArrayBuffer[Double] = {
+    val relationFeature = ArrayBuffer.fill[Double](globalRelations.length)(0)
+    if (r1.provenance.isEmpty) {
+      throw new Exception("Empty provenance for relation")
+    }
+    for (n <- r1.provenance) {
+      relationFeature(globalRelations.indexOf(n)) = 1
+    }
+    relationFeature
+  }
+
+  def joinOneHotFeaturization(r1 : RelationStub, r2 : RelationStub, globalRelations : Array[String]): (ArrayBuffer[Double], ArrayBuffer[Double]) = {
+    val r1Features = oneHotFeaturization(r1, globalRelations)
+    val r2Features = oneHotFeaturization(r2, globalRelations)
+    (r1Features ++ r2Features, r2Features ++ r1Features)
+  }
+
   // use isCommutative flag
   // use isAssociative?
-  /* Global list is a parameter in case we want to do a one-hot featurization */
-  def joinFeaturization(r1 : RelationStub, r2 : RelationStub, globalRelations : Vector[String]): (ArrayBuffer[Double], ArrayBuffer[Double]) = {
+  def joinFeaturization(r1 : RelationStub, r2 : RelationStub): (ArrayBuffer[Double], ArrayBuffer[Double]) = {
     val dummyR1 = new Join(ArrayBuffer[Either[RelationStub, QueryInstruction]](Left(r1)), ArrayBuffer[ConstraintStub]())
     val r1Features = planFeaturization(dummyR1)._2
     val dummyR2 = new Join(ArrayBuffer[Either[RelationStub, QueryInstruction]](Left(r2)), ArrayBuffer[ConstraintStub]())

@@ -17,6 +17,9 @@ class Learner(maxWidth : Int) {
     var content = ArrayBuffer[Double]()
     val featureBase = BaseFeaturization.getBaseSystemFeaturization
     val tFeatureMaxWidth = maxWidth - featureBase.size
+    if (transforms(0).featurize.numCols > tFeatureMaxWidth) {
+      println("WARNING: This learner is losing information by cropping columns of features. Create a learner with a larger max width.")
+    }
     for (t <- transforms) {
       val transformMatrix = t.featurize
       for (row <- transformMatrix.rowIter) {
@@ -32,21 +35,21 @@ class Learner(maxWidth : Int) {
         nRows += 1
       }
     }
-    Matrices.dense(nRows, maxWidth, content.toArray)
+    /* Column major matrix */
+    Matrices.dense(maxWidth, nRows, content.toArray).transpose
   }
 
   def genTrainingRun(initialPlan : QueryInstruction): (Matrix, Vector) = {
-    val planSampler = new Sampler(initialPlan, 5)
+    val planSampler = new Sampler(initialPlan, 1)
     val (sampledTransform, sampledPlan) = planSampler.sample()
     // sample a plan, evaluate the total, cost, and keep a running X_train and y
     val Xtrain = genFeatureMatrix(sampledTransform)
     val planCost = sampledPlan.cost
-    println(s"Plan cost ${planCost}")
     val ytrain = Vectors.dense(Array.fill[Double](Xtrain.numRows){planCost})
     (Xtrain, ytrain)
   }
 
-  def genTraining(initialPlan : QueryInstruction, maxIter : Int = 500): (Matrix, Vector) = {
+  def genTraining(initialPlan : QueryInstruction, maxIter : Int = 1000): (Matrix, Vector) = {
     var XContent = ArrayBuffer[Matrix]()
     var yContent = Array[Double]()
     for (i <- 1 to maxIter) {
@@ -65,18 +68,22 @@ class Learner(maxWidth : Int) {
       .appName("Learning Query Optimizer")
       .config("spark.master", "local")
       .getOrCreate()
+    spark.sparkContext.setLogLevel("ERROR")
     sSession = Some(spark)
     println("Generating training data")
     val (trainData, trainLabels) = genTraining(initialPlan)
     val dfPrep = trainData.rowIter.toSeq.zipWithIndex.map(x => LabeledPoint(trainLabels(x._2), x._1))
     val training = spark.sparkContext.parallelize(dfPrep)
     println("Fitting the model")
-    val m = new LinearRegressionWithSGD().setValidateData(false)
-    val model = m.run(training)
-    // Summarize the model over the training set and print out some metrics
-    // Print the coefficients and intercept for linear regression
+    val m = LinearRegressionWithSGD.train(training, 10000, 0.001)
+    val valuesAndPreds = training.map { point =>
+      val prediction = m.predict(point.features)
+      (point.label, prediction)
+    }
+    val MSE = valuesAndPreds.map{ case(v, p) => math.pow(v - p, 2)}.mean()
+    println("Mean Squared Error = " + MSE)
     println("Finished fitting the model.")
-    storedModel = Some(model)
+    storedModel = Some(m)
     true
   }
 
@@ -88,13 +95,12 @@ class Learner(maxWidth : Int) {
       }
     }
     val pSampler = new Sampler(plan, tDepth, false)
-    val (transforms, instructions) = pSampler.sampleN(50)
+    val (transforms, instructions) = pSampler.sampleN(25)
     val featurizedTransforms = transforms.map(t => genFeatureMatrix(t))
     val tMatrix = Matrices.vertcat(featurizedTransforms)
     val dfPrep = tMatrix.rowIter.toSeq
     val training = sSession.get.sparkContext.parallelize(dfPrep)
     val predictions = storedModel.get.predict(training)
-    println(predictions.collect().mkString("\n"))
     println("Finished predict loop")
     (instructions, predictions.collect())
   }
@@ -104,7 +110,9 @@ class Learner(maxWidth : Int) {
     val (instructions, preds) = predict(plan)
     var minIdx = -1
     var min = scala.Double.MaxValue
+    println("Prediction values:")
     for (i <- preds.indices) {
+      println(preds(i))
       if (preds(i) < min) {
         min = preds(i)
         minIdx = i
@@ -114,6 +122,7 @@ class Learner(maxWidth : Int) {
     val spark = sSession.get
     spark.stop()
     val solution = bestPlan.execute
+    println(s"best plan: ${instructions(minIdx)}")
     println(s"best plan had cost: ${solution.initCost}")
     solution
   }

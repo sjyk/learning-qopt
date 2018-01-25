@@ -34,7 +34,8 @@ class Join(var relations : ArrayBuffer[Either[RelationStub, QueryInstruction]],
     val intersection = leftTable.relationContent & rightTable.relationContent
     val joinName = rightTable.relationName + " * " + leftTable.relationName
     val cost = perJoinCost(leftTable.initCost, leftTable.relationContent.size, rightTable.initCost, rightTable.relationContent.size)
-    new RelationStub(joinName, intersection, cost)
+    val provenance = leftTable.provenance ++ rightTable.provenance
+    new RelationStub(joinName, intersection, cost, provenance)
   }
 
   def perJoinCost(lCost : Double, lSize : Int, rCost : Double, rSize : Int) : Double = {
@@ -43,9 +44,24 @@ class Join(var relations : ArrayBuffer[Either[RelationStub, QueryInstruction]],
     cost + IOCost
   }
 
+  def resolveDeepest(parent : Option[QueryInstruction] = None) : RelationStub = {
+    if (this.relations(0).isLeft && this.relations(1).isLeft) {
+      val result = this.execute
+      if (parent.isDefined) {
+        parent.get.relations(1) = Left(result)
+      }
+      result
+    } else {
+      if (this.relations(1).isRight) {
+        this.relations(1).right.get.asInstanceOf[Join].resolveDeepest(Some(this))
+      } else {
+      throw new Exception("Left relation cannot be a QueryInstruction.")
+      }
+    }
+  }
+
   override def cost : Double = {
     val joinCopy = this.deepClone.asInstanceOf[Join]
-    println(joinCopy.toString)
     for (i <- joinCopy.relations.indices) {
       if (joinCopy.relations(i).isRight) {
         joinCopy.relations(i) = Left(joinCopy.relations(i).right.get.execute)
@@ -54,6 +70,14 @@ class Join(var relations : ArrayBuffer[Either[RelationStub, QueryInstruction]],
     val left = joinCopy.relations(0).left.get
     val right = joinCopy.relations(1).left.get
     perJoinCost(left.initCost, left.relationContent.size, right.initCost, right.relationContent.size)
+  }
+
+  override def toString: String = {
+    if (this.relations(0).isLeft && this.relations(1).isLeft) {
+      this.relations(0).left.get.relationName + " * " + this.relations(1).left.get.relationName
+    } else {
+      this.relations(0).left.get.relationName + " * " + this.relations(1).right.get.toString
+    }
   }
 }
 

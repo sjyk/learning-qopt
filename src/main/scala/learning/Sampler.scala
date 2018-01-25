@@ -1,7 +1,7 @@
 package learning
 
 import opt.{QueryInstruction, RelationStub, Transformation}
-import dml.{IdentityTransform, JoinRandomSwap}
+import dml.{IdentityTransform, Join, JoinRandomSwap}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -52,10 +52,11 @@ class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var wit
     var i = 0
     while (i < transformationMaxAttempts) {
       /** Sample a transformation order */
-      val sampledTransform = Array.fill(sampleDepth){allTransformations(scala.util.Random.nextInt(allTransformations.size))}
+      val sampledTransform = Array.fill(sampleDepth){allTransformations(scala.util.Random.nextInt(allTransformations.size)).deepClone}
       var planCopy = initialPlan.deepClone
       for (x <- sampledTransform) {
         planCopy = x.transform(planCopy)
+        planCopy.asInstanceOf[Join].resolveDeepest()
       }
       if (withValidation && PlanValidator.validate(planCopy, Some(initialPlan))) {
         return (sampledTransform, planCopy)
@@ -78,12 +79,12 @@ class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var wit
   }
 
   def sampleN(n : Int): (Array[Array[Transformation]], Array[QueryInstruction]) = {
-    var sampledTransforms : ArrayBuffer[Array[Transformation]] = ArrayBuffer[Array[Transformation]]()
-    var sampledInstructions : ArrayBuffer[QueryInstruction] = ArrayBuffer[QueryInstruction]()
+    var sampledTransforms = Vector[Array[Transformation]]()
+    var sampledInstructions = Vector[QueryInstruction]()
     for (i <- 1 to n) {
       val (tList, instr) = sample()
-      sampledTransforms.append(tList)
-      sampledInstructions.append(instr)
+      sampledTransforms = sampledTransforms :+ tList
+      sampledInstructions = sampledInstructions :+ instr
     }
     (sampledTransforms.toArray, sampledInstructions.toArray)
   }
