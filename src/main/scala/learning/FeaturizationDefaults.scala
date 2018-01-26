@@ -61,8 +61,6 @@ object FeaturizationDefaults {
     (r1Features ++ r2Features, r2Features ++ r1Features)
   }
 
-  // use isCommutative flag
-  // use isAssociative?
   def joinFeaturization(r1 : RelationStub, r2 : RelationStub): (ArrayBuffer[Double], ArrayBuffer[Double]) = {
     val dummyR1 = new Join(ArrayBuffer[Either[RelationStub, QueryInstruction]](Left(r1)), ArrayBuffer[ConstraintStub]())
     val r1Features = planFeaturization(dummyR1)._2

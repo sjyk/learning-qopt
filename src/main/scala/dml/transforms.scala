@@ -24,7 +24,7 @@ class IdentityTransform extends Transformation {
     i
   }
 
-  override def featurize: DenseMatrix = {
+  override def featurize(trainMode : Boolean): DenseMatrix = {
     val featurization = FeaturizationDefaults.planFeaturization(input.get)._1.toArray
     new DenseMatrix(1, featurization.length, featurization)
   }
@@ -62,7 +62,7 @@ class JoinRandomSwap extends Transformation {
 
   /** Build a set of the relations in this query plan. Pick 2 without replacement. Swap them. */
   override def transform(input: QueryInstruction, kargs : Array[Any] = Array()): QueryInstruction = {
-    /* This swap is trivial and useless if there's only 2 relations in the table. */
+    /* This swap is trivial and useless if there'ts only 2 relations in the table. */
     val relationSet = getRelationSet(input).toVector
     val r1Obj = Random.shuffle(relationSet).asInstanceOf[Vector[(String, RelationStub)]](0)
     val r1Name = r1Obj._1
@@ -117,11 +117,13 @@ class JoinRandomSwap extends Transformation {
     input
   }
 
-  override def featurize: DenseMatrix = {
+  override def featurize(trainMode : Boolean = false): DenseMatrix = {
     val (f1, f2) = FeaturizationDefaults.joinOneHotFeaturization(a1.get, a2.get, instrList.get)
-    new DenseMatrix(f1.size, 1, f1.toArray).transpose
-//    val result = new DenseMatrix(f1.size, 2, (f1 ++ f2).toArray).transpose
-//    result
+    if (trainMode) {
+      new DenseMatrix(f1.size, 2, (f1 ++ f2).toArray).transpose
+    } else {
+      new DenseMatrix(f1.size, 1, f1.toArray).transpose
+    }
   }
 
   override def toString: String = {
@@ -140,7 +142,7 @@ class RandomParallelFindMerge extends Transformation {
     i
   }
 
-  override def featurize: DenseMatrix = {
+  override def featurize(trainMode : Boolean): DenseMatrix = {
     val featurization = FeaturizationDefaults.planFeaturization(input.get)._1.toArray
     new DenseMatrix(1, featurization.length, featurization)
   }

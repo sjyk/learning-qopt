@@ -56,7 +56,6 @@ class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var wit
       var planCopy = initialPlan.deepClone
       for (x <- sampledTransform) {
         planCopy = x.transform(planCopy)
-        planCopy.asInstanceOf[Join].resolveDeepest()
       }
       if (withValidation && PlanValidator.validate(planCopy, Some(initialPlan))) {
         return (sampledTransform, planCopy)

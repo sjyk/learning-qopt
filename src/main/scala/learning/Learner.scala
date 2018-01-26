@@ -12,16 +12,16 @@ class Learner(maxWidth : Int) {
   var storedModel : Option[LinearRegressionModel] = None
   var sSession : Option[SparkSession] = None
 
-  def genFeatureMatrix(transforms : Array[Transformation]): Matrix = {
+  def genFeatureMatrix(transforms : Array[Transformation], trainMode : Boolean = false): Matrix = {
     var nRows = 0
     var content = ArrayBuffer[Double]()
     val featureBase = BaseFeaturization.getBaseSystemFeaturization
     val tFeatureMaxWidth = maxWidth - featureBase.size
-    if (transforms(0).featurize.numCols > tFeatureMaxWidth) {
+    if (transforms(0).featurize(trainMode).numCols > tFeatureMaxWidth) {
       println("WARNING: This learner is losing information by cropping columns of features. Create a learner with a larger max width.")
     }
     for (t <- transforms) {
-      val transformMatrix = t.featurize
+      val transformMatrix = t.featurize(trainMode)
       for (row <- transformMatrix.rowIter) {
         var nRow : Option[Array[Double]] = None
         if (row.size > tFeatureMaxWidth) {
@@ -39,11 +39,11 @@ class Learner(maxWidth : Int) {
     Matrices.dense(maxWidth, nRows, content.toArray).transpose
   }
 
-  def genTrainingRun(initialPlan : QueryInstruction): (Matrix, Vector) = {
-    val planSampler = new Sampler(initialPlan, 1)
+  def genTrainingRun(initialPlan : QueryInstruction, sampleDepth : Int = 1): (Matrix, Vector) = {
+    val planSampler = new Sampler(initialPlan, sampleDepth)
     val (sampledTransform, sampledPlan) = planSampler.sample()
     // sample a plan, evaluate the total, cost, and keep a running X_train and y
-    val Xtrain = genFeatureMatrix(sampledTransform)
+    val Xtrain = genFeatureMatrix(sampledTransform, trainMode = true)
     val planCost = sampledPlan.cost
     val ytrain = Vectors.dense(Array.fill[Double](Xtrain.numRows){planCost})
     (Xtrain, ytrain)
@@ -87,17 +87,18 @@ class Learner(maxWidth : Int) {
     true
   }
 
-  def predict(plan : QueryInstruction, tDepth : Int = 1) : (Array[QueryInstruction], Array[Double]) = {
+  def predict(plan : QueryInstruction) : (Array[QueryInstruction], Array[Double]) = {
     if (storedModel.isEmpty) {
       val modelBuilt = buildModel(plan)
       if (!modelBuilt) {
         throw new Exception("Model failed to build.")
       }
     }
-    val pSampler = new Sampler(plan, tDepth, false)
+    val pSampler = new Sampler(plan, 1, false)
     val (transforms, instructions) = pSampler.sampleN(25)
     val featurizedTransforms = transforms.map(t => genFeatureMatrix(t))
     val tMatrix = Matrices.vertcat(featurizedTransforms)
+    println(s"X test dimensions: (${tMatrix.numRows}, ${tMatrix.numCols})")
     val dfPrep = tMatrix.rowIter.toSeq
     val training = sSession.get.sparkContext.parallelize(dfPrep)
     val predictions = storedModel.get.predict(training)
@@ -106,23 +107,24 @@ class Learner(maxWidth : Int) {
   }
 
   /* Predict and find the best value plan */
-  def optimizeAndExecute(plan : QueryInstruction) : RelationStub = {
-    val (instructions, preds) = predict(plan)
-    var minIdx = -1
-    var min = scala.Double.MaxValue
-    println("Prediction values:")
-    for (i <- preds.indices) {
-      println(preds(i))
-      if (preds(i) < min) {
-        min = preds(i)
-        minIdx = i
+  def optimizeAndExecute(plan : QueryInstruction, optimizationDepth : Int = 7) : RelationStub = {
+    var bestPlan = plan
+    for (i <- 1 to optimizationDepth) {
+      val (instructions, preds) = predict(bestPlan)
+      var minIdx = -1
+      var min = scala.Double.MaxValue
+      for (i <- preds.indices) {
+        if (preds(i) < min) {
+          min = preds(i)
+          minIdx = i
+        }
       }
+      bestPlan = instructions(minIdx)
     }
-    val bestPlan = instructions(minIdx)
     val spark = sSession.get
     spark.stop()
     val solution = bestPlan.execute
-    println(s"best plan: ${instructions(minIdx)}")
+    println(s"best plan: ${bestPlan}")
     println(s"best plan had cost: ${solution.initCost}")
     solution
   }

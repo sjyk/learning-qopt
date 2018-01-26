@@ -113,7 +113,7 @@ abstract class Transformation extends Serializable {
 
   def transform(input : QueryInstruction, kargs : Array[Any] = Array()) : QueryInstruction
 
-  def featurize : DenseMatrix
+  def featurize(trainMode : Boolean = false) : DenseMatrix
 
   override def toString: String = {
     canonicalName
