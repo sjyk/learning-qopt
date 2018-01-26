@@ -118,7 +118,7 @@ class JoinRandomSwap extends Transformation {
   }
 
   override def featurize(trainMode : Boolean = false): DenseMatrix = {
-    val (f1, f2) = FeaturizationDefaults.joinOneHotFeaturization(a1.get, a2.get, instrList.get)
+    val (f1, f2) = FeaturizationDefaults.joinFeaturization(a1.get, a2.get)
     if (trainMode) {
       new DenseMatrix(f1.size, 2, (f1 ++ f2).toArray).transpose
     } else {

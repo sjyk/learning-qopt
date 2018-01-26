@@ -107,7 +107,7 @@ class Learner(maxWidth : Int) {
   }
 
   /* Predict and find the best value plan */
-  def optimizeAndExecute(plan : QueryInstruction, optimizationDepth : Int = 7) : RelationStub = {
+  def optimizeAndExecute(plan : QueryInstruction, optimizationDepth : Int = 6) : RelationStub = {
     var bestPlan = plan
     for (i <- 1 to optimizationDepth) {
       val (instructions, preds) = predict(bestPlan)
