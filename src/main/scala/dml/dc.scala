@@ -16,7 +16,14 @@ class Find(var relations : mutable.ArrayBuffer[Either[RelationStub, QueryInstruc
            var parameters : mutable.ArrayBuffer[ConstraintStub]) extends QueryInstruction("find") {
 
   override def checkSchema(): Boolean = {
-    // fix later.
+    if (relations(0).isRight) {
+      return false
+    }
+    for (p <- parameters) {
+      if (!checkValidConstraint(p)) {
+        return false
+      }
+    }
     true
   }
 

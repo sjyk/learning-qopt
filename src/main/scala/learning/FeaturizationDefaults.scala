@@ -1,6 +1,5 @@
 package learning
 
-import breeze.linalg.max
 import dml.Join
 import opt.{ConstraintStub, QueryInstruction, RelationStub}
 
