@@ -14,6 +14,7 @@ class LearningConfig() {
   var lr : Double = 0.01
   var nPredictions : Int = 25
   var optimizationDepth : Int = 1
+  var learnerFeatureMaxWidth : Int = -1
 
   def fromDict(attrMap : Map[String, Double]) : Unit = {
     sampleDepth = if (attrMap.contains("sampleDepth")) attrMap("sampleDepth").asInstanceOf[Int] else sampleDepth
@@ -31,19 +32,28 @@ class LearningConfig() {
   }
 }
 
-class Learner(maxWidth : Int) {
+class Learner() {
 
   var storedModel : Option[LinearRegressionModel] = None
   var sSession : Option[SparkSession] = None
+  var cropWarning = false
 
-  def genFeatureMatrix(transforms : Array[Transformation], trainMode : Boolean = false): Matrix = {
+  def genFeatureMatrix(transforms : Array[Transformation], config : LearningConfig, trainMode : Boolean = false): Matrix = {
     var nRows = 0
     var content = ArrayBuffer[Double]()
     val featureBase = BaseFeaturization.getBaseSystemFeaturization
-    val tFeatureMaxWidth = maxWidth - featureBase.size
-    if (transforms(0).featurize(trainMode).numCols > tFeatureMaxWidth) {
-      println("WARNING: This learner is losing information by cropping columns of features. Create a learner with a larger max width.")
+    var tFeatureMaxWidth = transforms(0).featurize(trainMode).numCols
+    var maxWidth = featureBase.size + tFeatureMaxWidth
+
+    if (config.learnerFeatureMaxWidth != -1) {
+      tFeatureMaxWidth = config.learnerFeatureMaxWidth - featureBase.size
+      maxWidth = config.learnerFeatureMaxWidth
+      if (transforms(0).featurize(trainMode).numCols > tFeatureMaxWidth && !cropWarning) {
+        println("WARNING: This learner is losing information by cropping columns of features. Create a learner with a larger max width.")
+        cropWarning = true
+      }
     }
+
     for (t <- transforms) {
       val transformMatrix = t.featurize(trainMode)
       for (row <- transformMatrix.rowIter) {
@@ -67,7 +77,7 @@ class Learner(maxWidth : Int) {
     val planSampler = new Sampler(initialPlan, config.sampleDepth)
     val (sampledTransform, sampledPlan) = planSampler.sample()
     // sample a plan, evaluate the total, cost, and keep a running X_train and y
-    val Xtrain = genFeatureMatrix(sampledTransform, trainMode = true)
+    val Xtrain = genFeatureMatrix(sampledTransform, config, trainMode = true)
     val planCost = sampledPlan.cost
     val ytrain = Vectors.dense(Array.fill[Double](Xtrain.numRows){planCost})
     (Xtrain, ytrain)
@@ -121,7 +131,7 @@ class Learner(maxWidth : Int) {
     }
     val pSampler = new Sampler(plan, 1, false)
     val (transforms, instructions) = pSampler.sampleN(config.nPredictions)
-    val featurizedTransforms = transforms.map(t => genFeatureMatrix(t))
+    val featurizedTransforms = transforms.map(t => genFeatureMatrix(t, config))
     val tMatrix = Matrices.vertcat(featurizedTransforms)
     println(s"X test dimensions: (${tMatrix.numRows}, ${tMatrix.numCols})")
     val dfPrep = tMatrix.rowIter.toSeq

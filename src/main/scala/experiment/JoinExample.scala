@@ -1,7 +1,7 @@
 package experiment
 
 import dml.JoinUtils
-import learning.Learner
+import learning.{Learner, LearningConfig}
 import opt.RelationStub
 
 import scala.collection.mutable
@@ -18,7 +18,14 @@ object JoinExample {
     val i = r6.relationContent & r5.relationContent
     val relations = ArrayBuffer[RelationStub](r1, r2, r3, r4, r5, r6)
     val join = JoinUtils.initJoinFromList(relations)
-    val learner = new Learner(40)
-    learner.optimizeAndExecute(join)
+    val learner = new Learner()
+    val config = new LearningConfig()
+    config.fromDict(
+      Map[String, Double](
+        ("sampleDepth", 2),
+        ("lr", 0.001),
+        ("numTrainingIterations", 10000),
+        ("optimizationDepth", 6)))
+    learner.optimizeAndExecute(join, config)
   }
 }

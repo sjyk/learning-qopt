@@ -18,7 +18,7 @@ object Sandbox {
     val i = r6.relationContent & r5.relationContent
     val relations = ArrayBuffer[RelationStub](r1, r2, r3, r4, r5, r6)
     val join = JoinUtils.initJoinFromList(relations)
-    val learner = new Learner(100)
+    val learner = new Learner()
     learner.optimizeAndExecute(join)
   }
 }

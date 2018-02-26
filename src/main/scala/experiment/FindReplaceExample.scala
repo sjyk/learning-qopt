@@ -37,11 +37,11 @@ object FindReplaceExample {
     val config = new LearningConfig()
     config.fromDict(
       Map[String, Double](
-        ("sampleDepth", 2),
-        ("lr", 0.001),
-        ("numTrainingIterations", 10000),
-        ("optimizationDepth", 6)))
-    val learner = new Learner(200)
+        ("sampleDepth", 1),
+        ("lr", 0.01),
+        ("numTrainingIterations", 4000),
+        ("optimizationDepth", 1)))
+    val learner = new Learner()
     learner.optimizeAndExecute(find, config)
   }
 }
