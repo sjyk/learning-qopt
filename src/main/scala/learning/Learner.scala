@@ -29,6 +29,10 @@ class LearningConfig() {
       if (attrMap.contains("optimizationDepth"))
         attrMap("optimizationDepth").asInstanceOf[Int]
       else optimizationDepth
+    learnerFeatureMaxWidth =
+      if (attrMap.contains("learnerFeatureMaxWidth"))
+        attrMap("learnerFeatureMaxWidth").asInstanceOf[Int]
+      else learnerFeatureMaxWidth
   }
 }
 
