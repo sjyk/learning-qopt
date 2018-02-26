@@ -62,6 +62,10 @@ class JoinRandomSwap extends Transformation {
 
   /** Build a set of the relations in this query plan. Pick 2 without replacement. Swap them. */
   override def transform(input: QueryInstruction, kargs : Array[Any] = Array()): QueryInstruction = {
+    if (input.instructionType != "Join") {
+      /* If this isn't a join, we're going to run into trouble - treat this as a null transform */
+      return input
+    }
     /* This swap is trivial and useless if there'ts only 2 relations in the table. */
     val relationSet = getRelationSet(input).toVector
     val r1Obj = Random.shuffle(relationSet).asInstanceOf[Vector[(String, RelationStub)]](0)
@@ -131,19 +135,58 @@ class JoinRandomSwap extends Transformation {
   }
 }
 
-class RandomParallelFindMerge extends Transformation {
+class RandomConstraintMerge extends Transformation {
 
   var input : Option[QueryInstruction] = None
-
   override var canonicalName: String = "RandomParallelFindMerge"
+  var QIList : Option[ArrayBuffer[QueryInstruction]] = None
+
+  def getQIMap(i: QueryInstruction): ArrayBuffer[QueryInstruction] = {
+    var QIMap = new ArrayBuffer[QueryInstruction]()
+    QIMap += i
+    for (r <- i.relations) {
+      if (r.isRight) {
+        QIMap = QIMap ++ getQIMap(r.right.get)
+      }
+    }
+    QIList = Some(QIMap)
+    QIMap
+  }
 
   override def transform(i: QueryInstruction, kargs: Array[Any]): QueryInstruction = {
+    var relationOrder = ArrayBuffer[String]()
+    val QIOrder = getQIMap(i)
+    for (qi <- QIOrder) {
+      relationOrder += qi.relations(0).left.get.relationName
+    }
     input = Some(i)
-    i
+    /* we will not transform if we don't satisfy the correctness constraint */
+    val relationSet = relationOrder.toSet
+    /* Null transform because all relations are different - nothing to swap */
+    if (relationSet.size == relationOrder.size) {
+      i
+    } else {
+      /* Stupid implementation from efficiency standpoint, but will work in toy examples */
+      var pairFound = false
+      while (!pairFound) {
+        val r1ObjIdx = Random.shuffle[Int, IndexedSeq](relationOrder.indices).toVector(0)
+        val r2ObjIdx = Random.shuffle[Int, IndexedSeq](relationOrder.indices).toVector(0)
+        if (r1ObjIdx != r2ObjIdx && relationOrder(r1ObjIdx) == relationOrder(r2ObjIdx)) {
+          /* perform the remove/add */
+          val r1 = QIList.get(r1ObjIdx)
+          val r2 = QIList.get(r2ObjIdx)
+          val r2AttrIdx = Random.shuffle[Int, IndexedSeq](r2.parameters.indices).toVector(0)
+          r1.parameters += r2.parameters(r2AttrIdx)
+          r2.parameters.remove(r2AttrIdx)
+          pairFound = true
+        }
+      }
+      i
+    }
   }
 
   override def featurize(trainMode : Boolean): DenseMatrix = {
-    val featurization = FeaturizationDefaults.planFeaturization(input.get)._1.toArray
-    new DenseMatrix(1, featurization.length, featurization)
+    val featurization = FeaturizationDefaults.findReplaceFeaturization(QIList.get)
+    new DenseMatrix(featurization.size, 1, featurization.toArray).transpose
   }
 }

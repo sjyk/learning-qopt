@@ -72,16 +72,17 @@ class Learner(maxWidth : Int) {
     sSession = Some(spark)
     println("Generating training data")
     val (trainData, trainLabels) = genTraining(initialPlan)
+    println("Generated training data. Preparing and parallelizing.")
     val dfPrep = trainData.rowIter.toSeq.zipWithIndex.map(x => LabeledPoint(trainLabels(x._2), x._1))
     val training = spark.sparkContext.parallelize(dfPrep)
     println("Fitting the model")
-    val m = LinearRegressionWithSGD.train(training, 10000, 0.001)
+    val m = LinearRegressionWithSGD.train(training, 4000, 0.01)
     val valuesAndPreds = training.map { point =>
       val prediction = m.predict(point.features)
       (point.label, prediction)
     }
     val MSE = valuesAndPreds.map{ case(v, p) => math.pow(v - p, 2)}.mean()
-    println("Mean Squared Error = " + MSE)
+    println(s"Mean Squared Error = ${MSE}")
     println("Finished fitting the model.")
     storedModel = Some(m)
     true
@@ -107,7 +108,7 @@ class Learner(maxWidth : Int) {
   }
 
   /* Predict and find the best value plan */
-  def optimizeAndExecute(plan : QueryInstruction, optimizationDepth : Int = 6) : RelationStub = {
+  def optimizeAndExecute(plan : QueryInstruction, optimizationDepth : Int = 1) : RelationStub = {
     var bestPlan = plan
     for (i <- 1 to optimizationDepth) {
       val (instructions, preds) = predict(bestPlan)
@@ -125,7 +126,8 @@ class Learner(maxWidth : Int) {
     spark.stop()
     val solution = bestPlan.execute
     println(s"best plan: ${bestPlan}")
-    println(s"best plan had cost: ${solution.initCost}")
+    println(s"best plan had cost: ${bestPlan.cost}")
+    println(s"solution relation had cost: ${solution.initCost}")
     solution
   }
 }

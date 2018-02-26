@@ -1,10 +1,9 @@
 package learning
 
+import dml.{JoinRandomSwap, RandomConstraintMerge}
 import opt.{QueryInstruction, RelationStub, Transformation}
-import dml.{IdentityTransform, Join, JoinRandomSwap}
 
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
 import scala.util.{Failure, Random, Success, Try}
 
 /** This class needs to sample from a space of possible outcomes.
@@ -26,7 +25,12 @@ class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var wit
       }
     }
   }
-  val allTransformations : Vector[Transformation] = mutable.Set[Transformation](new JoinRandomSwap).toVector
+  var allTransformations : Vector[Transformation] = Vector()
+  if (initialPlan.instructionType == "Join") {
+    allTransformations = mutable.Set[Transformation](new JoinRandomSwap).toVector
+  } else {
+    allTransformations = mutable.Set[Transformation](new RandomConstraintMerge).toVector
+  }
   val transformationMaxAttempts : Int = maxAttempts.getOrElse(1000)
 
   @throws(classOf[Exception])

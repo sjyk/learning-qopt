@@ -7,7 +7,7 @@ import opt.RelationStub
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-object Sandbox {
+object JoinExample {
   def main(args: Array[String]) : Unit = {
     val r1 = new RelationStub("a", mutable.Set(Seq("1"), Seq("2"), Seq("4"), Seq("5"), Seq("6"), Seq("7")))
     val r2 = new RelationStub("b", mutable.Set(Seq("1"), Seq("2"), Seq("3"), Seq("5"), Seq("6"), Seq("10")))
@@ -18,7 +18,7 @@ object Sandbox {
     val i = r6.relationContent & r5.relationContent
     val relations = ArrayBuffer[RelationStub](r1, r2, r3, r4, r5, r6)
     val join = JoinUtils.initJoinFromList(relations)
-    val learner = new Learner(100)
+    val learner = new Learner(40)
     learner.optimizeAndExecute(join)
   }
 }

@@ -1,8 +1,10 @@
 package learning
 
+import breeze.linalg.max
 import dml.Join
 import opt.{ConstraintStub, QueryInstruction, RelationStub}
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 
@@ -44,20 +46,26 @@ object FeaturizationDefaults {
     (featureVector, relationVector, constraintVector)
   }
 
-  def oneHotFeaturization(r1 : RelationStub, globalRelations : Array[String]) : ArrayBuffer[Double] = {
-    val relationFeature = ArrayBuffer.fill[Double](globalRelations.length)(0)
-    if (r1.provenance.isEmpty) {
-      throw new Exception("Empty provenance for relation")
+  def oneHotFeaturization(hotVector : Array[Any], globalDict : Array[Any]) : ArrayBuffer[Double] = {
+    val featureVector = ArrayBuffer.fill[Double](globalDict.length)(0)
+    for (n <- hotVector) {
+      if (!globalDict.contains(n)) {
+        throw new Exception("Attempting to set an element as hot without it being in the dictionary.")
+      }
+      featureVector(globalDict.indexOf(n)) = 1
     }
-    for (n <- r1.provenance) {
-      relationFeature(globalRelations.indexOf(n)) = 1
-    }
-    relationFeature
+    featureVector
   }
 
   def joinOneHotFeaturization(r1 : RelationStub, r2 : RelationStub, globalRelations : Array[String]): (ArrayBuffer[Double], ArrayBuffer[Double]) = {
-    val r1Features = oneHotFeaturization(r1, globalRelations)
-    val r2Features = oneHotFeaturization(r2, globalRelations)
+    if (r1.provenance.isEmpty) {
+      throw new Exception("Empty provenance for relation")
+    }
+    val r1Features = oneHotFeaturization(r1.provenance.toArray, globalRelations.toArray[Any])
+    if (r2.provenance.isEmpty) {
+      throw new Exception("Empty provenance for relation")
+    }
+    val r2Features = oneHotFeaturization(r2.provenance.toArray, globalRelations.toArray[Any])
     (r1Features ++ r2Features, r2Features ++ r1Features)
   }
 
@@ -67,5 +75,59 @@ object FeaturizationDefaults {
     val dummyR2 = new Join(ArrayBuffer[Either[RelationStub, QueryInstruction]](Left(r2)), ArrayBuffer[ConstraintStub]())
     val r2Features = planFeaturization(dummyR2)._2
     (r1Features ++ r2Features, r2Features ++ r1Features)
+  }
+
+  def findReplaceFeaturization(QIMap : ArrayBuffer[QueryInstruction]) : ArrayBuffer[Double] = {
+    var max = 0
+    var rNameList = mutable.Set[String]()
+    var constraintStrings = mutable.Set[String]()
+    var attrList = mutable.Set[Int]()
+    for (i <- QIMap) {
+      if (i.parameters.length > max) {
+        max = i.parameters.length
+      }
+      rNameList += i.relations(0).left.get.relationName
+      for (p <- i.parameters) {
+        for (c <- p.constraints) {
+          if (c.isLeft) {
+            attrList += c.left.get
+          } else {
+            constraintStrings += c.right.get
+          }
+        }
+      }
+    }
+    val rNameVSize = rNameList.size
+    val cStringVSize = constraintStrings.size
+    val attrVSize = attrList.size
+    var relationFeature = ArrayBuffer.fill[Double]((rNameVSize + max * (cStringVSize * 2 + attrVSize)) * QIMap.size)(0)
+    var idx = 0
+    for (i <- QIMap.indices) {
+      val qi = QIMap(i)
+      var relationIdx = i * (1 + max*3)
+      val rNameFeature = oneHotFeaturization(Array(qi.relations(0).left.get.relationName), rNameList.toArray)
+      for (x <- rNameFeature) {
+        relationFeature(relationIdx) = x
+        relationIdx += 1
+      }
+      for (c <- qi.parameters) {
+        for (item <- c.constraints) {
+          if (item.isRight) {
+            val cStringFeature = oneHotFeaturization(Array(item.right.get), constraintStrings.toArray)
+            for (x <- cStringFeature) {
+              relationFeature(relationIdx) = x
+              relationIdx += 1
+            }
+          } else {
+            val attrFeature = oneHotFeaturization(Array(item.left.get), attrList.toArray)
+            for (x <- attrFeature) {
+              relationFeature(relationIdx) = x
+              relationIdx += 1
+            }
+          }
+        }
+      }
+    }
+    relationFeature
   }
 }
