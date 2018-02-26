@@ -1,7 +1,7 @@
 package experiment
 
 import dml._
-import learning.Learner
+import learning.{Learner, LearningConfig}
 import opt.ConstraintStub
 
 import scala.collection.mutable.ArrayBuffer
@@ -21,7 +21,6 @@ object FindReplaceExample {
       Array("a", "a", "a", "a", "a", "a"),
       Array("b", "b", "b", "b", "b", "b"),
       Array("c", "c", "c", "c", "c", "c")))
-    /* Bug - our default featurization value is 0, but indices may also be 0 */
     val c1 = ArrayBuffer(
       new ConstraintStub(ArrayBuffer[Either[Int, String]](Right("a"), Right("replaceda1"), Left(1))),
       new ConstraintStub(ArrayBuffer[Either[Int, String]](Right("a"), Right("replaceda3"), Left(3))))
@@ -35,7 +34,14 @@ object FindReplaceExample {
     println(find)
     println(s"Initial find has cost: ${find.cost}")
     println("Optimal cost for this plan is 29.")
+    val config = new LearningConfig()
+    config.fromDict(
+      Map[String, Double](
+        ("sampleDepth", 2),
+        ("lr", 0.001),
+        ("numTrainingIterations", 10000),
+        ("optimizationDepth", 6)))
     val learner = new Learner(200)
-    learner.optimizeAndExecute(find)
+    learner.optimizeAndExecute(find, config)
   }
 }
