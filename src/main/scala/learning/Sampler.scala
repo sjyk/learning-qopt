@@ -17,12 +17,8 @@ class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var wit
   val isMC : Boolean = {
     val accessor = Try(initialPlan.getAllowedTransformations(initialPlan))
     accessor match {
-      case Failure(thrown) => {
-        false
-      }
-      case Success(s) => {
-        true
-      }
+      case Failure(_) => false
+      case Success(_) => true
     }
   }
   var allTransformations : Vector[Transformation] = Vector()
@@ -37,7 +33,6 @@ class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var wit
   private def randomSampleMC() : (Array[Transformation], QueryInstruction) = {
     val rnd = new Random()
     val transformationList = new Array[Transformation](sampleDepth)
-    val pType = initialPlan.getClass
     var planCopy = initialPlan.deepClone
     for (i <- transformationList.indices) {
       val tSet = initialPlan.getAllowedTransformations(planCopy)
@@ -56,7 +51,8 @@ class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var wit
     var i = 0
     while (i < transformationMaxAttempts) {
       /** Sample a transformation order */
-      val sampledTransform = Array.fill(sampleDepth){allTransformations(scala.util.Random.nextInt(allTransformations.size)).deepClone}
+      val sampledTransform = Array.fill(sampleDepth)
+      {allTransformations(scala.util.Random.nextInt(allTransformations.size)).deepClone}
       var planCopy = initialPlan.deepClone
       for (x <- sampledTransform) {
         planCopy = x.transform(planCopy)

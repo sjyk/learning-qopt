@@ -77,7 +77,6 @@ class Find(var relations : mutable.ArrayBuffer[Either[RelationStub, QueryInstruc
     }
     /* each find you just incur the column length of the relation * distinct set. */
     val relation = relations(0).left.get.asInstanceOf[DataRelationStub]
-//    println(s"How big is the relation: ${relation.dataRelationContent.length}")
     cost = relation.dataRelationContent.length * attrSet.size
     if (relations.size > 1) {
       val next = relations(1)

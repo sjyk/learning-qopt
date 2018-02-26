@@ -120,7 +120,7 @@ class Learner() {
       (point.label, prediction)
     }
     val MSE = valuesAndPreds.map{ case(v, p) => math.pow(v - p, 2)}.mean()
-    println(s"Training Mean Squared Error = ${MSE}")
+    println(s"Training Mean Squared Error = $MSE")
     println("Finished fitting the model.")
     storedModel = Some(m)
     true
@@ -163,7 +163,7 @@ class Learner() {
     val spark = sSession.get
     spark.stop()
     val solution = bestPlan.execute
-    println(s"best plan: ${bestPlan}")
+    println(s"best plan: $bestPlan")
     println(s"best plan had cost: ${bestPlan.cost}")
     println(s"solution relation had cost: ${solution.initCost}")
     solution
