@@ -28,6 +28,7 @@ class LearningConfig() {
   var learnerFeatureMaxWidth : Int = -1
   var nHiddenUnits : Int = 300
   var batchSize : Int = 50
+  var randomSeed : Int = 12345
 
   def fromDict(attrMap : Map[String, Double]) : Unit = {
     sampleDepth = if (attrMap.contains("sampleDepth")) {
@@ -53,13 +54,15 @@ class LearningConfig() {
     batchSize = if (attrMap.contains("batchSize")) {
       attrMap("batchSize").asInstanceOf[Int]
     } else batchSize
+    randomSeed = if (attrMap.contains("randomSeed")) {
+      attrMap("randomSeed").asInstanceOf[Int]
+    } else randomSeed
   }
 }
 
 class Learner() {
   // scalastyle:off println
   var storedModel : Option[MultiLayerNetwork] = None
-  var sSession : Option[SparkSession] = None
   var cropWarning = false
 
   def genFeatureMatrix(transforms : Array[Transformation],
@@ -79,6 +82,9 @@ class Learner() {
           "cropping columns of features. Create a learner with a larger max width.")
         cropWarning = true
       }
+    } else {
+      println(s"Setting feature width to its maximum: $maxWidth")
+      config.learnerFeatureMaxWidth = maxWidth
     }
     for (t <- transforms) {
       var transformMatrix = t.featurize(trainMode)
@@ -124,6 +130,16 @@ class Learner() {
   }
 
   def buildModel(initialPlan : QueryInstruction, config: LearningConfig) : Boolean = {
+    println("Generating training data")
+    val (trainData, trainLabels) = genTraining(initialPlan, config)
+    println("Generated training data. Preparing and parallelizing.")
+    val dSet = new DataSet(trainData, trainLabels)
+    var dList = dSet.asList()
+    dList = JavaConverters.bufferAsJavaListConverter(
+      scala.util.Random.shuffle(
+        JavaConverters.asScalaBufferConverter(dList).asScala)).asJava
+    val dIter = new ListDataSetIterator(dList, config.batchSize)
+    println("Fitting the model")
     val nnConf = new NeuralNetConfiguration.Builder()
       .seed(12345)
       .weightInit(WeightInit.XAVIER)
@@ -148,14 +164,6 @@ class Learner() {
       .backprop(true)
       .build
     val net = new MultiLayerNetwork(nnConf)
-    println("Generating training data")
-    val (trainData, trainLabels) = genTraining(initialPlan, config)
-    println("Generated training data. Preparing and parallelizing.")
-    val dSet = new DataSet(trainData, trainLabels)
-    var dList = dSet.asList()
-    dList = scala.util.Random.shuffle(dList)
-    val dIter = new ListDataSetIterator(dList, config.batchSize)
-    println("Fitting the model")
     net.init()
     for (i <- 0 to config.nEpochs) {
       dIter.reset()
@@ -173,7 +181,7 @@ class Learner() {
 
   def predict(plan : QueryInstruction,
               config : LearningConfig = new LearningConfig())
-  : (Array[QueryInstruction], Array[Double]) = {
+  : (Array[QueryInstruction], Array[Int]) = {
     if (storedModel.isEmpty) {
       val modelBuilt = buildModel(plan, config)
       if (!modelBuilt) {
@@ -186,7 +194,7 @@ class Learner() {
     val tMatrix = Nd4j.vstack(
       JavaConverters.asJavaCollectionConverter(featurizedTransforms).asJavaCollection)
     println(s"X test dimensions: (${tMatrix.rows()}, ${tMatrix.columns()})")
-    val predictions = storedModel.get.predict(tMatrix).toArray[Double]
+    val predictions = storedModel.get.predict(tMatrix)
     println("Finished predict loop")
     (instructions, predictions)
   }
@@ -198,7 +206,7 @@ class Learner() {
     for (i <- 1 to config.optimizationDepth) {
       val (instructions, preds) = predict(bestPlan, config)
       var minIdx = -1
-      var min = scala.Double.MaxValue
+      var min = scala.Int.MaxValue
       for (i <- preds.indices) {
         if (preds(i) < min) {
           min = preds(i)
@@ -207,8 +215,6 @@ class Learner() {
       }
       bestPlan = instructions(minIdx)
     }
-    val spark = sSession.get
-    spark.stop()
     val solution = bestPlan.execute
     println(s"best plan: $bestPlan")
     println(s"best plan had cost: ${bestPlan.cost}")

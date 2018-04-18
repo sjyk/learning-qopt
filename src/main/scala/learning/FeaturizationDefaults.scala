@@ -141,4 +141,4 @@ object FeaturizationDefaults {
     }
     relationFeature
   }
-}}
+}
