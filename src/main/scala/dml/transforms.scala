@@ -6,12 +6,10 @@ import learning.FeaturizationDefaults
 import scala.util.Random
 import scala.collection.mutable
 import org.apache.spark.ml.linalg.DenseMatrix
+import org.nd4j.linalg.api.ndarray.INDArray
+import org.nd4j.linalg.factory.Nd4j
 
 import scala.collection.mutable.ArrayBuffer
-
-class transforms {
-
-}
 
 class IdentityTransform extends Transformation {
 
@@ -24,9 +22,9 @@ class IdentityTransform extends Transformation {
     i
   }
 
-  override def featurize(trainMode : Boolean): DenseMatrix = {
+  override def featurize(trainMode : Boolean): INDArray = {
     val featurization = FeaturizationDefaults.planFeaturization(input.get)._1.toArray
-    new DenseMatrix(1, featurization.length, featurization)
+    Nd4j.create(featurization)
   }
 }
 
@@ -49,7 +47,6 @@ class JoinRandomSwap extends Transformation {
         relationSet = relationSet + (relation.left.get.relationName -> relation.left.get)
       } else {
         relationSet = relationSet ++ getRelationSet(relation.right.get)
-        // the result of the previous function call will put the partial global instruction list in the instrList.
         for (name <- instrList.get) {
           allRelations += name
         }
@@ -61,7 +58,8 @@ class JoinRandomSwap extends Transformation {
   }
 
   /** Build a set of the relations in this query plan. Pick 2 without replacement. Swap them. */
-  override def transform(input: QueryInstruction, kargs : Array[Any] = Array()): QueryInstruction = {
+  override def transform(input: QueryInstruction,
+                         kargs : Array[Any] = Array()): QueryInstruction = {
     if (input.instructionType != "Join") {
       /* If this isn't a join, we're going to run into trouble - treat this as a null transform */
       return input
@@ -90,7 +88,8 @@ class JoinRandomSwap extends Transformation {
     var secondRef : Option[QueryInstruction] = None
     var secondRelRef : Option[RelationStub] = None
     var secondIdx : Int = 0
-    /* We will make the assumption that the left relation (relations(0)) of the plan will be a single, non-joined
+    /* We will make the assumption that the left relation
+     * (relations(0)) of the plan will be a single, non-joined
      * relation with its original name. */
     var curRelation = instrRef.relations(0).left.get
     var idx = 0
@@ -121,12 +120,12 @@ class JoinRandomSwap extends Transformation {
     input
   }
 
-  override def featurize(trainMode : Boolean = false): DenseMatrix = {
+  override def featurize(trainMode : Boolean = false): INDArray = {
     val (f1, f2) = FeaturizationDefaults.joinFeaturization(a1.get, a2.get)
     if (trainMode) {
-      new DenseMatrix(f1.size, 2, (f1 ++ f2).toArray).transpose
+      Nd4j.vstack(Nd4j.create(f1.toArray), Nd4j.create(f2.toArray))
     } else {
-      new DenseMatrix(f1.size, 1, f1.toArray).transpose
+      Nd4j.create(f1.toArray)
     }
   }
 
@@ -185,8 +184,8 @@ class RandomConstraintMerge extends Transformation {
     }
   }
 
-  override def featurize(trainMode : Boolean): DenseMatrix = {
+  override def featurize(trainMode : Boolean): INDArray = {
     val featurization = FeaturizationDefaults.findReplaceFeaturization(QIList.get)
-    new DenseMatrix(featurization.size, 1, featurization.toArray).transpose
+    Nd4j.create(featurization.toArray)
   }
 }

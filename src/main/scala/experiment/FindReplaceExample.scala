@@ -22,18 +22,27 @@ object FindReplaceExample {
       Array("b", "b", "b", "b", "b", "b"),
       Array("c", "c", "c", "c", "c", "c")))
     val c1 = ArrayBuffer(
-      new ConstraintStub(ArrayBuffer[Either[Int, String]](Right("a"), Right("replaceda1"), Left(1))),
-      new ConstraintStub(ArrayBuffer[Either[Int, String]](Right("a"), Right("replaceda3"), Left(3))))
+      new ConstraintStub(
+        ArrayBuffer[Either[Int, String]](Right("a"), Right("replaceda1"), Left(1))),
+      new ConstraintStub(
+        ArrayBuffer[Either[Int, String]](Right("a"), Right("replaceda3"), Left(3))))
     val c2 = ArrayBuffer(
-      new ConstraintStub(ArrayBuffer[Either[Int, String]](Right("a"), Right("replaceda1"), Left(1))),
-      new ConstraintStub(ArrayBuffer[Either[Int, String]](Right("a"), Right("replaceda3"), Left(3))))
+      new ConstraintStub(
+        ArrayBuffer[Either[Int, String]](Right("a"), Right("replaceda1"), Left(1))),
+      new ConstraintStub(
+        ArrayBuffer[Either[Int, String]](Right("a"), Right("replaceda3"), Left(3))))
     val c3 = ArrayBuffer(
-      new ConstraintStub(ArrayBuffer[Either[Int, String]](Right("c"), Right("replacedc1"), Left(1))),
-      new ConstraintStub(ArrayBuffer[Either[Int, String]](Right("a"), Right("replaceda4"), Left(4))))
-    val find = DCUtils.initFindFromList(ArrayBuffer(Left(r1), Right(c1), Left(r2), Right(c2), Left(r1), Right(c3)))
+      new ConstraintStub(
+        ArrayBuffer[Either[Int, String]](Right("c"), Right("replacedc1"), Left(1))),
+      new ConstraintStub(
+        ArrayBuffer[Either[Int, String]](Right("a"), Right("replaceda4"), Left(4))))
+    val find = DCUtils.initFindFromList(
+      ArrayBuffer(Left(r1), Right(c1), Left(r2), Right(c2), Left(r1), Right(c3)))
+    // scalastyle:off println
     println(find)
     println(s"Initial find has cost: ${find.cost}")
     println("Optimal cost for this plan is 29.")
+    // scalastyle:on println
     val config = new LearningConfig()
     config.fromDict(
       Map[String, Double](

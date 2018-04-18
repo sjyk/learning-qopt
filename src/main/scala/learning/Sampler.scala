@@ -6,13 +6,26 @@ import opt.{QueryInstruction, RelationStub, Transformation}
 import scala.collection.mutable
 import scala.util.{Failure, Random, Success, Try}
 
-/** This class needs to sample from a space of possible outcomes.
-  * We allow for two forms of sampling - the first is Monte-Carlo sampling, where the implementer of the instruction
-  * defines a function getAllowedTransformations on a given plan. This is significant overhead to the implementer, but
-  * more efficient to sample fast. Rejection sampling is MC sampling with all the actions as allowed transformations,
-  * and the sampler will default to this if the instruction does not implement the allowed transformations API.
+/** This class needs to sample from a space of possible outcomes. We
+  * allow for two forms of sampling - Monte Carlo and Rejection.
+  * In Monte-Carlo sampling, where the implementer of the instruction
+  * defines a function getAllowedTransformations on a given plan. This
+  * is significant overhead to the implementer, but more efficient to
+  * sample fast.
+  * Rejection sampling is MC sampling with all the actions as allowed
+  * transformations. The sampler will default to this if the instruction
+  * does not implement the allowed transformations API.
+  *
+  * @param initialPlan
+  * @param sampleDepth
+  * @param withValidation
+  * @param maxAttempts
   */
-class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var withValidation : Boolean = true, var maxAttempts : Option[Int] = None) {
+class Sampler(
+               var initialPlan : QueryInstruction,
+               var sampleDepth : Int,
+               var withValidation : Boolean = true,
+               var maxAttempts : Option[Int] = None) {
 
   val isMC : Boolean = {
     val accessor = Try(initialPlan.getAllowedTransformations(initialPlan))
@@ -91,8 +104,10 @@ class Sampler(var initialPlan : QueryInstruction, var sampleDepth : Int, var wit
 
 /** Class that checks whether a sampled plan returns the same result as the original instruction. */
 object PlanValidator {
-  def validate(proposedPlan : QueryInstruction, plan : Option[QueryInstruction] = None, expectedResult : Option[RelationStub] = None) : Boolean = {
-    val expected  = if (plan.isDefined) {plan.get.deepClone.execute} else {expectedResult.get}
+  def validate(proposedPlan : QueryInstruction,
+               plan : Option[QueryInstruction] = None,
+               expectedResult : Option[RelationStub] = None) : Boolean = {
+    val expected = if (plan.isDefined) {plan.get.deepClone.execute} else {expectedResult.get}
     expected.equals(proposedPlan.deepClone.execute)
   }
 }

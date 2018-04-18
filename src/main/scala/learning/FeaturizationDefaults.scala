@@ -6,7 +6,6 @@ import opt.{ConstraintStub, QueryInstruction, RelationStub}
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-
 object BaseFeaturization {
   def getBaseSystemFeaturization: ArrayBuffer[Double] = {
     ArrayBuffer[Double]()
@@ -17,7 +16,8 @@ object BaseFeaturization {
   * Utility class of default featurizations
   */
 object FeaturizationDefaults {
-  def planFeaturization(input : QueryInstruction) : (ArrayBuffer[Double], ArrayBuffer[Double], ArrayBuffer[Double]) = {
+  def planFeaturization(input : QueryInstruction)
+  : (ArrayBuffer[Double], ArrayBuffer[Double], ArrayBuffer[Double]) = {
     // we cannot featurize the relations - they vary in size and may be tremendous in size.
     // we *can* featurize the cardinality.
     var featureVector = new ArrayBuffer[Double]()
@@ -49,14 +49,18 @@ object FeaturizationDefaults {
     val featureVector = ArrayBuffer.fill[Double](globalDict.length)(0)
     for (n <- hotVector) {
       if (!globalDict.contains(n)) {
-        throw new Exception("Attempting to set an element as hot without it being in the dictionary.")
+        throw new Exception("Attempting to set an element as hot " +
+          "without it being in the dictionary.")
       }
       featureVector(globalDict.indexOf(n)) = 1
     }
     featureVector
   }
 
-  def joinOneHotFeaturization(r1 : RelationStub, r2 : RelationStub, globalRelations : Array[String]): (ArrayBuffer[Double], ArrayBuffer[Double]) = {
+  def joinOneHotFeaturization(r1 : RelationStub,
+                              r2 : RelationStub,
+                              globalRelations : Array[String])
+  : (ArrayBuffer[Double], ArrayBuffer[Double]) = {
     if (r1.provenance.isEmpty) {
       throw new Exception("Empty provenance for relation")
     }
@@ -68,10 +72,13 @@ object FeaturizationDefaults {
     (r1Features ++ r2Features, r2Features ++ r1Features)
   }
 
-  def joinFeaturization(r1 : RelationStub, r2 : RelationStub): (ArrayBuffer[Double], ArrayBuffer[Double]) = {
-    val dummyR1 = new Join(ArrayBuffer[Either[RelationStub, QueryInstruction]](Left(r1)), ArrayBuffer[ConstraintStub]())
+  def joinFeaturization(r1 : RelationStub,
+                        r2 : RelationStub): (ArrayBuffer[Double], ArrayBuffer[Double]) = {
+    val dummyR1 = new Join(ArrayBuffer[Either[RelationStub, QueryInstruction]](Left(r1)),
+      ArrayBuffer[ConstraintStub]())
     val r1Features = planFeaturization(dummyR1)._2
-    val dummyR2 = new Join(ArrayBuffer[Either[RelationStub, QueryInstruction]](Left(r2)), ArrayBuffer[ConstraintStub]())
+    val dummyR2 = new Join(ArrayBuffer[Either[RelationStub, QueryInstruction]](Left(r2)),
+      ArrayBuffer[ConstraintStub]())
     val r2Features = planFeaturization(dummyR2)._2
     (r1Features ++ r2Features, r2Features ++ r1Features)
   }
@@ -99,12 +106,15 @@ object FeaturizationDefaults {
     val rNameVSize = rNameList.size
     val cStringVSize = constraintStrings.size
     val attrVSize = attrList.size
-    var relationFeature = ArrayBuffer.fill[Double]((rNameVSize + max * (cStringVSize * 2 + attrVSize)) * QIMap.size)(0)
+    var relationFeature = ArrayBuffer.fill[Double](
+      (rNameVSize + max * (cStringVSize * 2 + attrVSize)) * QIMap.size)(0)
     var idx = 0
     for (i <- QIMap.indices) {
       val qi = QIMap(i)
       var relationIdx = i * (1 + max*3)
-      val rNameFeature = oneHotFeaturization(Array(qi.relations(0).left.get.relationName), rNameList.toArray)
+      val rNameFeature = oneHotFeaturization(
+        Array(qi.relations(0).left.get.relationName),
+        rNameList.toArray)
       for (x <- rNameFeature) {
         relationFeature(relationIdx) = x
         relationIdx += 1
@@ -112,7 +122,9 @@ object FeaturizationDefaults {
       for (c <- qi.parameters) {
         for (item <- c.constraints) {
           if (item.isRight) {
-            val cStringFeature = oneHotFeaturization(Array(item.right.get), constraintStrings.toArray)
+            val cStringFeature = oneHotFeaturization(
+              Array(item.right.get),
+              constraintStrings.toArray)
             for (x <- cStringFeature) {
               relationFeature(relationIdx) = x
               relationIdx += 1
@@ -129,4 +141,4 @@ object FeaturizationDefaults {
     }
     relationFeature
   }
-}
+}}

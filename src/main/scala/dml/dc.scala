@@ -5,12 +5,9 @@ import opt.{ConstraintStub, QueryInstruction, RelationStub}
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-class dc {
-
-}
-
 class DataRelationStub(var dataRelationName : String,
-                       var dataRelationContent : Array[Array[String]]) extends RelationStub(dataRelationName, mutable.Set())
+                       var dataRelationContent : Array[Array[String]])
+  extends RelationStub(dataRelationName, mutable.Set())
 
 class Find(var relations : mutable.ArrayBuffer[Either[RelationStub, QueryInstruction]],
            var parameters : mutable.ArrayBuffer[ConstraintStub]) extends QueryInstruction("find") {
@@ -52,7 +49,7 @@ class Find(var relations : mutable.ArrayBuffer[Either[RelationStub, QueryInstruc
       relations(0).left.get.asInstanceOf[DataRelationStub]
     }
     relations(0) = Left(relation)
-    /* if parameters.size is > 1, that means that we have combined multiple sets of constraints into 1 */
+    /* if parameters.size is > 1, combined multiple sets of constraints into 1 */
     for (paramSet <- parameters) {
       val find = paramSet.constraints(0).right.getOrElse("")
       val replace = paramSet.constraints(1).right.getOrElse("")
@@ -89,7 +86,8 @@ class Find(var relations : mutable.ArrayBuffer[Either[RelationStub, QueryInstruc
 }
 
 object DCUtils {
-  def initFindFromList(objects : ArrayBuffer[Either[DataRelationStub, ArrayBuffer[ConstraintStub]]]) : Find = {
+  def initFindFromList(objects: ArrayBuffer[
+    Either[DataRelationStub, ArrayBuffer[ConstraintStub]]]): Find = {
     if (objects.size == 2) {
       return new Find(
         ArrayBuffer[Either[RelationStub, QueryInstruction]](Left(objects(0).left.get)),
